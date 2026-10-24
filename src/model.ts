@@ -23,7 +23,6 @@ export interface Draft {
 }
 const USERS = "fragile:v1:users";
 const DRAFTS = "fragile:v1:drafts";
-const SESSION = "fragile:v1:session";
 export const NOTE_LIMIT = 500;
 export function noteLength(note: string) {
   return Array.from(note).length;
@@ -99,10 +98,12 @@ function write(key: string, value: unknown, storage: Storage) {
     );
   }
 }
-export function listDrafts(ownerId: string, storage = localStorage) {
-  return read(DRAFTS, isDraft, storage)
-    .filter((d) => d.ownerId === ownerId)
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+// Drafts belong to this browser in the account-free prototype. Include legacy
+// account-associated drafts without rewriting or removing their saved data.
+export function listDrafts(storage = localStorage) {
+  return read(DRAFTS, isDraft, storage).sort((a, b) =>
+    b.updatedAt.localeCompare(a.updatedAt),
+  );
 }
 export function saveDraft(draft: Draft, storage = localStorage) {
   validateNote(draft.note);
@@ -113,28 +114,26 @@ export function saveDraft(draft: Draft, storage = localStorage) {
   const drafts = read(DRAFTS, isDraft, storage);
   const existing = drafts.find((d) => d.id === draft.id);
   if (existing && existing.ownerId !== draft.ownerId)
-    throw new Error("This draft belongs to another account.");
+    throw new Error(
+      "This draft’s stored identity has changed. Reload it before saving.",
+    );
   write(DRAFTS, [...drafts.filter((d) => d.id !== draft.id), draft], storage);
 }
-export function deleteDraft(
-  ownerId: string,
-  id: string,
-  storage = localStorage,
-) {
+export function deleteDraft(id: string, storage = localStorage) {
   const drafts = read(DRAFTS, isDraft, storage);
-  if (!drafts.some((d) => d.ownerId === ownerId && d.id === id))
+  if (!drafts.some((d) => d.id === id))
     throw new Error("This draft is no longer available.");
   write(
     DRAFTS,
-    drafts.filter((d) => !(d.ownerId === ownerId && d.id === id)),
+    drafts.filter((d) => d.id !== id),
     storage,
   );
 }
-export function newDraft(ownerId: string): Draft {
+export function newDraft(): Draft {
   const now = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
-    ownerId,
+    ownerId: "local-device",
     createdAt: now,
     updatedAt: now,
     capturedAt: now,
@@ -175,7 +174,7 @@ export async function register(name: string, email: string, password: string) {
   let users = read(USERS, isUser, localStorage);
   if (users.some((u) => u.email === normalizedEmail))
     throw new Error(
-      "This email is already registered on this device. Please sign in.",
+      "This email is already registered on this device. You can create logs without an account.",
     );
   const salt = crypto.randomUUID();
   const user: User = {
@@ -187,39 +186,10 @@ export async function register(name: string, email: string, password: string) {
   };
   users = read(USERS, isUser, localStorage);
   if (users.some((u) => u.email === normalizedEmail))
-    throw new Error("This email is already registered. Please sign in.");
+    throw new Error(
+      "This email is already registered on this device. You can create logs without an account.",
+    );
   write(USERS, [...users, user], localStorage);
-}
-export async function login(email: string, password: string) {
-  const user = read(USERS, isUser, localStorage).find(
-    (u) => u.email === email.trim().toLowerCase(),
-  );
-  if (!user || user.verifier !== (await passwordVerifier(password, user.salt)))
-    throw new Error(
-      "Email or password is incorrect. Use an account registered on this device.",
-    );
-  write(SESSION, user.id, localStorage);
-  return user;
-}
-export function currentUser(): User | null {
-  const raw = localStorage.getItem(SESSION);
-  if (!raw) return null;
-  let id: unknown;
-  try {
-    id = JSON.parse(raw);
-  } catch {
-    throw new Error("Could not read your saved session. Please sign in again.");
-  }
-  return read(USERS, isUser, localStorage).find((u) => u.id === id) ?? null;
-}
-export function logout() {
-  try {
-    localStorage.removeItem(SESSION);
-  } catch {
-    throw new Error(
-      "Could not sign out. Please check browser storage and try again.",
-    );
-  }
 }
 export function completion(d: Draft) {
   return [!!d.location, !!d.capturedAt, !!d.photo, !!d.note.trim()].filter(

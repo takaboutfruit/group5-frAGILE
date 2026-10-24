@@ -13,11 +13,11 @@ import {
   Trash2,
   ShieldCheck,
 } from "lucide-react";
-import type { User, Draft } from "../model";
+import type { Draft } from "../model";
 import { listDrafts, completion, deleteDraft } from "../model";
 import { Alert, Modal, Badge } from "../components/ui";
 import { message, date, shortId } from "../utils";
-export default function Dashboard({ user }: { user: User }) {
+export default function Dashboard() {
   const location = useLocation();
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [error, setError] = useState("");
@@ -28,7 +28,7 @@ export default function Dashboard({ user }: { user: User }) {
   );
   function load() {
     try {
-      setDrafts(listDrafts(user.id));
+      setDrafts(listDrafts());
       setError("");
     } catch (e) {
       setError(message(e));
@@ -39,11 +39,11 @@ export default function Dashboard({ user }: { user: User }) {
     const sync = () => load();
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
-  }, [user.id]);
+  }, []);
   function remove() {
     if (!target) return;
     try {
-      deleteDraft(user.id, target.id);
+      deleteDraft(target.id);
       setTarget(null);
       setNotice("Draft deleted from this device.");
       load();
@@ -60,8 +60,7 @@ export default function Dashboard({ user }: { user: User }) {
             My field logs<span className="title-dot">.</span>
           </h1>
           <p>
-            Welcome back, {user.name.split(" ")[0]}. Every cleanup makes a
-            difference.
+            Your cleanup records, saved on this device. No account required.
           </p>
         </div>
         <Link className="button primary" to="/logs/new">

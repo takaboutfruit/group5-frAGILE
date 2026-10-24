@@ -14,7 +14,7 @@ import {
   MapPin,
   RefreshCw,
 } from "lucide-react";
-import type { Draft, User } from "../model";
+import type { Draft } from "../model";
 import {
   completion,
   listDrafts,
@@ -25,9 +25,9 @@ import {
 import { Alert, Badge, Modal } from "../components/ui";
 import { preparePhoto } from "../photo";
 import { message, date, shortId } from "../utils";
-export function EditorRoute({ user }: { user: User }) {
+export function EditorRoute() {
   const { id } = useParams();
-  return <Editor key={id} user={user} id={id} />;
+  return <Editor key={id} id={id} />;
 }
 const steps = [
   { title: "Location", icon: MapPin },
@@ -36,12 +36,10 @@ const steps = [
   { title: "Note", icon: FileText },
   { title: "Review", icon: CheckCircle2 },
 ];
-export default function Editor({ user, id }: { user: User; id?: string }) {
+export default function Editor({ id }: { id?: string }) {
   const [initial] = useState(() => {
     try {
-      const draft = id
-        ? listDrafts(user.id).find((d) => d.id === id)
-        : newDraft(user.id);
+      const draft = id ? listDrafts().find((d) => d.id === id) : newDraft();
       return {
         draft,
         error: draft ? "" : "This draft could not be found on this device.",
@@ -152,7 +150,7 @@ export default function Editor({ user, id }: { user: User; id?: string }) {
       saveDraft(saved);
       setBaseline(JSON.stringify(saved));
       bypass.current = true;
-      navigate("/", { state: { saved: true } });
+      navigate("/logs", { state: { saved: true } });
     } catch (e) {
       setError(message(e));
       setSaving(false);
@@ -161,12 +159,12 @@ export default function Editor({ user, id }: { user: User; id?: string }) {
   if (!draft)
     return (
       <main className="narrow page">
-        <Link to="/" className="back-link">
+        <Link to="/logs" className="back-link">
           <ArrowLeft size={16} /> My logs
         </Link>
         <h1>Draft unavailable</h1>
         <Alert>{initial.error}</Alert>
-        <Link to="/" className="button primary">
+        <Link to="/logs" className="button primary">
           Back to my logs
         </Link>
       </main>
@@ -174,7 +172,7 @@ export default function Editor({ user, id }: { user: User; id?: string }) {
   const validNote = noteLength(draft.note) <= 500;
   return (
     <main className="editor page">
-      <Link to="/" className="back-link">
+      <Link to="/logs" className="back-link">
         <ArrowLeft size={16} /> My field logs
       </Link>
       <div className="page-title-row">
@@ -558,7 +556,9 @@ export default function Editor({ user, id }: { user: User; id?: string }) {
           <div className="editor-actions">
             <button
               className="button secondary"
-              onClick={() => (step === 0 ? navigate("/") : setStep(step - 1))}
+              onClick={() =>
+                step === 0 ? navigate("/logs") : setStep(step - 1)
+              }
             >
               <ArrowLeft size={16} />
               {step === 0 ? "Cancel" : "Back"}

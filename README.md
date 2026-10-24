@@ -22,13 +22,15 @@ Deploy `dist/` with a fallback to `index.html` for application routes. Camera ca
 
 ## Demo journey
 
-1. Create an account using test details and a unique demo password; then sign in.
-2. Select **Create log**. Request your GPS location or continue without it.
+1. Open the home page and select **Create log**—no account or sign-in is required.
+2. Request your GPS location or continue without it.
 3. Review the automatically captured device date/time.
 4. Take or select a photo, review its preview, and select **Use photo**.
 5. Add an optional note (maximum 500 characters), review, and **Save draft**.
 6. Open **My logs** to edit a draft. Changes only persist when saved.
 7. Delete a draft through its confirmation dialog, or cancel to retain it.
+
+**Create account** is a separate, optional demo at `/register`. Registration neither signs you in nor changes access to drafts. The `/login` page has been removed. All draft creation, listing (`/logs`), editing, and deletion are available immediately.
 
 A partial draft needs a location, photo, or nonblank note before it can be saved. The automatically captured timestamp alone is not considered meaningful draft content. Photos are resized to a maximum dimension of 1280px and stored as JPEG data URLs to reduce localStorage usage. Saving a draft replaces its existing version rather than adding a duplicate.
 
@@ -43,13 +45,13 @@ npm run test:e2e
 
 If the default home cache is unavailable in a cloud workspace, use `npm ci --cache /workspace/.npm-cache`. For browser binaries, use the same `PLAYWRIGHT_BROWSERS_PATH=/workspace/.cache/ms-playwright` setting for both installation and E2E execution. Browser tests start Vite automatically. If Chromium is already installed, you can skip the browser download and run `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e` (the path used in this cloud workspace).
 
-Unit tests cover CRUD, account scoping, failed-write preservation, corrupted storage, invalid data, and note validation. Browser tests cover registration/sign-in, GPS coordinates, real image decoding/preview, persistence across reload, note editing, deletion confirmation, permission denial, storage failure recovery, unsaved changes, mobile overflow, and editing while disconnected.
+Unit tests cover CRUD, compatibility with legacy account-associated drafts, failed-write preservation, corrupted storage, invalid data, and note validation. Browser tests cover optional registration independent of log creation, account-free GPS coordinates, real image decoding/preview, persistence across reload, note editing, deletion confirmation, permission denial, storage failure recovery, unsaved changes, mobile overflow, and editing while disconnected.
 
 ## Prototype boundaries
 
-- Accounts are mock browser-local accounts, **not production authentication**. Passwords are stored as salted PBKDF2 verifiers rather than plaintext, but anyone with access to browser storage can inspect or modify records or sessions. Do not use real credentials or sensitive records.
-- Accounts and drafts use versioned `fragile:v1:*` localStorage keys. Lists are scoped to the signed-in account as a demo convenience, not a security boundary. No data leaves the app for an API, and account creation does not require a network connection.
-- Browser storage quotas apply, especially to photos. Failed saves retain the active form and the last saved record. Clearing browser data removes all accounts, sessions, drafts, and photos. There is no backup, synchronization, server timestamp, upload, or final submission workflow.
+- Registration is a standalone browser-local demo; **there is no authentication in this phase**. Passwords are stored as salted PBKDF2 verifiers rather than plaintext, but anyone with access to browser storage can inspect or modify records. Do not use real credentials or sensitive records.
+- Accounts and drafts use versioned `fragile:v1:*` localStorage keys. Drafts are shared within this browser, independently of accounts. Existing drafts from the earlier account-scoped version remain available without signing in; their original metadata is preserved. Old session data is ignored. No data leaves the app for an API, and account creation does not require a network connection.
+- Browser storage quotas apply, especially to photos. Failed saves retain the active form and the last saved record. Clearing browser data removes all accounts, drafts, and photos. There is no backup, synchronization, server timestamp, upload, or final submission workflow.
 - Offline editing works **while the application is already loaded**. There is no service worker or offline cold-start/reload support in this simplified scope.
 - GPS and camera availability depend on the browser, permissions, device, and HTTPS. The location illustration is decorative; it is not an interactive map. Device timestamps are not verified by a server.
 - No photo is attached until **Use photo** is selected. All form changes require **Save draft**. Navigation warns before discarding unsaved edits.

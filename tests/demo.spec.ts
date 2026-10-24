@@ -1,28 +1,15 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-const password = "OceanDemo123!";
-async function account(page: Page) {
-  await page.goto("/register");
-  await page.getByLabel("Full name").fill("Maya Chen");
-  await page.getByLabel("Email address").fill("maya@example.com");
-  await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByLabel("Confirm password").fill(password);
-  await page.getByRole("checkbox").check();
-  await page
-    .getByRole("button", { name: "Create account", exact: true })
-    .click();
-  await expect(
-    page.getByRole("heading", { name: "Welcome aboard." }),
-  ).toBeVisible();
-  await page.getByRole("link", { name: "Sign in", exact: true }).last().click();
-  await page.getByLabel("Email address").fill("maya@example.com");
-  await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+async function openLogs(page: Page) {
+  await page.goto("/logs");
   await expect(
     page.getByRole("heading", { name: "My field logs." }),
   ).toBeVisible();
+  expect(
+    await page.evaluate(() => localStorage.getItem("fragile:v1:users")),
+  ).toBeNull();
 }
-test("registration, GPS/photo/note capture, persistence, edit, and confirmed deletion", async ({
+test("account-free GPS/photo/note capture, persistence, edit, and confirmed deletion", async ({
   page,
   context,
 }) => {
@@ -32,7 +19,7 @@ test("registration, GPS/photo/note capture, persistence, edit, and confirmed del
     longitude: 100.5018,
     accuracy: 5,
   });
-  await account(page);
+  await openLogs(page);
   await page.getByRole("link", { name: "Create log", exact: true }).click();
   await page.getByRole("button", { name: "Find my location" }).click();
   await expect(page.getByText("13.7563° N")).toBeVisible();
@@ -40,16 +27,14 @@ test("registration, GPS/photo/note capture, persistence, edit, and confirmed del
   await expect(page.getByText("Captured for this log")).toBeVisible();
   await page.getByRole("button", { name: "Next: Photo" }).click();
   // Valid 1×1 PNG fixture, processed by the real browser image/canvas pipeline.
-  await page
-    .getByLabel("Take or choose a photo")
-    .setInputFiles({
-      name: "cleanup.png",
-      mimeType: "image/png",
-      buffer: Buffer.from(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==",
-        "base64",
-      ),
-    });
+  await page.getByLabel("Take or choose a photo").setInputFiles({
+    name: "cleanup.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==",
+      "base64",
+    ),
+  });
   await page.getByRole("button", { name: "Use photo", exact: true }).click();
   await page.getByRole("button", { name: "Next: Note" }).click();
   await page
@@ -96,7 +81,7 @@ test("registration, GPS/photo/note capture, persistence, edit, and confirmed del
 test("permission denial, unsaved changes, note limit, and storage failure recovery", async ({
   page,
 }) => {
-  await account(page);
+  await openLogs(page);
   await page.evaluate(() => {
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
@@ -146,7 +131,7 @@ test("mobile layout and local draft editing without connectivity", async ({
   context,
 }) => {
   await page.setViewportSize({ width: 320, height: 740 });
-  await account(page);
+  await openLogs(page);
   await page.getByRole("link", { name: "Create log", exact: true }).click();
   await context.setOffline(true);
   await page.getByRole("button", { name: "4 Note" }).click();
@@ -169,20 +154,125 @@ test("mobile layout and local draft editing without connectivity", async ({
   await context.setOffline(false);
 });
 
-test('empty drafts, unsupported photos, discarded edits, and missing drafts', async ({page}) => {
-  await account(page);
-  await page.getByRole('link', {name: 'Create log', exact: true}).click();
-  await page.getByRole('button', {name: 'Save draft', exact: true}).click();
-  await expect(page.getByRole('alert')).toContainText('Add a location, photo, or note');
-  await page.getByRole('button', {name: '3 Photo'}).click();
-  await page.getByLabel('Take or choose a photo').setInputFiles({name:'not-a-photo.txt',mimeType:'text/plain',buffer:Buffer.from('not an image')});
-  await expect(page.getByRole('alert')).toContainText('Choose a JPG, PNG, or WebP photo');
-  await page.getByRole('button', {name:'4 Note'}).click();
-  await page.getByLabel('Cleanup note').fill('Discard this unsaved note');
-  await page.getByRole('link', {name:'My field logs',exact:true}).click();
-  await page.getByRole('button',{name:'Leave without saving'}).click();
-  await expect(page.locator('.draft-card')).toHaveCount(0);
-  await page.goto('/logs/does-not-exist');
-  await expect(page.getByRole('heading',{name:'Draft unavailable'})).toBeVisible();
-  await expect(page.getByRole('alert')).toContainText('could not be found');
+test("empty drafts, unsupported photos, discarded edits, and missing drafts", async ({
+  page,
+}) => {
+  await openLogs(page);
+  await page.getByRole("link", { name: "Create log", exact: true }).click();
+  await page.getByRole("button", { name: "Save draft", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Add a location, photo, or note",
+  );
+  await page.getByRole("button", { name: "3 Photo" }).click();
+  await page
+    .getByLabel("Take or choose a photo")
+    .setInputFiles({
+      name: "not-a-photo.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("not an image"),
+    });
+  await expect(page.getByRole("alert")).toContainText(
+    "Choose a JPG, PNG, or WebP photo",
+  );
+  await page.getByRole("button", { name: "4 Note" }).click();
+  await page.getByLabel("Cleanup note").fill("Discard this unsaved note");
+  await page.getByRole("link", { name: "My field logs", exact: true }).click();
+  await page.getByRole("button", { name: "Leave without saving" }).click();
+  await expect(page.locator(".draft-card")).toHaveCount(0);
+  await page.goto("/logs/does-not-exist");
+  await expect(
+    page.getByRole("heading", { name: "Draft unavailable" }),
+  ).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("could not be found");
+});
+
+test("registration stays optional and does not change existing device drafts", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "Create log", exact: true }).click();
+  await page.getByRole("button", { name: "4 Note" }).click();
+  await page
+    .getByLabel("Cleanup note")
+    .fill("Recorded before any account exists.");
+  await page.getByRole("button", { name: "Save draft", exact: true }).click();
+  const original = await page.evaluate(() =>
+    localStorage.getItem("fragile:v1:drafts"),
+  );
+  await page.getByRole("link", { name: "Create account", exact: true }).click();
+  await page.getByLabel("Full name").fill("Maya Chen");
+  await page.getByLabel("Email address").fill("maya@example.com");
+  await page.getByLabel("Password", { exact: true }).fill("OceanDemo123!");
+  await page.getByLabel("Confirm password").fill("OceanDemo123!");
+  await page.getByRole("checkbox").check();
+  await page
+    .getByRole("button", { name: "Create account", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Welcome aboard." }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(() => localStorage.getItem("fragile:v1:session")),
+  ).toBeNull();
+  expect(
+    await page.evaluate(() => localStorage.getItem("fragile:v1:drafts")),
+  ).toBe(original);
+  await page.getByRole("link", { name: "View my logs" }).click();
+  await expect(
+    page.getByText("Recorded before any account exists."),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText("Recorded before any account exists."),
+  ).toBeVisible();
+  await expect(page.locator('a[href="/login"]')).toHaveCount(0);
+  await page.goto("/login");
+  await expect(
+    page.getByRole("heading", { name: "Page not found" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Password", { exact: true })).toHaveCount(0);
+});
+
+test("legacy account drafts and stale sessions never block account-free editing", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    localStorage.setItem("fragile:v1:session", "broken legacy session");
+    localStorage.setItem("fragile:v1:users", "broken legacy users");
+    localStorage.setItem(
+      "fragile:v1:drafts",
+      JSON.stringify([
+        {
+          id: "legacy-log",
+          ownerId: "old-account",
+          createdAt: "2026-10-24T00:00:00Z",
+          updatedAt: "2026-10-24T00:00:00Z",
+          capturedAt: "2026-10-24T00:00:00Z",
+          timezone: "UTC",
+          location: null,
+          photo: null,
+          note: "Previously saved fieldwork.",
+        },
+      ]),
+    );
+  });
+  await page.goto("/logs/legacy-log");
+  await expect(
+    page.getByRole("heading", { name: "Edit your draft." }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "4 Note" }).click();
+  await page
+    .getByLabel("Cleanup note")
+    .fill("Legacy draft updated without an account.");
+  await page.getByRole("button", { name: "Save draft", exact: true }).click();
+  await expect(
+    page.getByText("Legacy draft updated without an account."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /Delete draft/ }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Delete draft", exact: true })
+    .click();
+  await expect(page.locator(".draft-card")).toHaveCount(0);
 });

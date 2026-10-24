@@ -25,11 +25,11 @@ export default function Welcome() {
             even out at sea.
           </p>
           <div className="hero-actions">
-            <Link to="/register" className="button primary">
-              Start your field log <ArrowRight size={18} />
+            <Link to="/logs/new" className="button primary">
+              Create log <ArrowRight size={18} />
             </Link>
-            <Link to="/login" className="hero-login">
-              Already registered? Sign in <ChevronRight size={16} />
+            <Link to="/register" className="hero-secondary">
+              Create an account (optional) <ChevronRight size={16} />
             </Link>
           </div>
         </div>
@@ -58,8 +58,8 @@ export default function Welcome() {
       <div className="prototype-note">
         <ShieldCheck size={17} />
         <p>
-          This is a local demo. Accounts and drafts stay in this browser; there
-          is no server or upload service. Use a demo password.
+          No account needed to create a log. Drafts stay in this browser; there
+          is no server or upload service.
         </p>
       </div>
     </main>
