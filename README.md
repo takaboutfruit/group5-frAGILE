@@ -20,6 +20,12 @@ npm run preview
 
 Deploy `dist/` with a fallback to `index.html` for application routes. Camera capture, geolocation, and password hashing require a secure context: HTTPS or localhost. The camera file input is a hint to mobile browsers; desktop browsers show a file picker. JPG, PNG, and WebP are supported; HEIC must be converted first.
 
+## Deploy to Vercel
+
+Import `takaboutfruit/group5-frAGILE` from GitHub in Vercel, using the repository root as the project root. The checked-in `vercel.json` selects Vite, runs `npm ci` and `npm run build`, publishes `dist/`, and rewrites application routes to `index.html` so `/logs`, `/logs/new`, and `/register` work on direct navigation and reload. No environment variables or backend services are required.
+
+With an authenticated Vercel CLI, run `npx vercel --prod` from this directory. Vercel account authentication is required to publish; GitHub repository access alone does not authorize a Vercel deployment.
+
 ## Demo journey
 
 1. Open the home page and select **Create log**—no account or sign-in is required.
