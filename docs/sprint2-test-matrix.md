@@ -10,7 +10,7 @@ Usability coverage in `tests/usability.spec.ts` verifies required commit fields,
 
 Specs: `tests/sprint2.spec.ts` (browser journeys and responsive checks), `src/transfers.test.ts` (atomic commits, upload transitions and uploaded-only fetch), `src/records.test.ts` (record validation, final submission, persistence and failed writes). Sprint 1 regression coverage remains in `tests/demo.spec.ts` and `src/model.test.ts`.
 
-The revised guide supersedes generic API/backend tasks: all operations use local storage with an asynchronous 1.5-second upload simulation. Native offline mode blocks sync but permits local commit. Material options are bundled, so no remote list request can fail; bundled options fulfill the default-list fallback. Receipt validation is JPEG/PNG and strictly below 3 MiB. References accept letters, numbers and hyphens, matching the design example. Optional cleanup-photo confirmation is separate from receipt evidence.
+The revised guide supersedes generic API/backend tasks: all operations use local storage with an asynchronous 1.5-second upload simulation. Native offline mode blocks sync but permits local commit. Material options are bundled, so no remote list request can fail; bundled options fulfill the default-list fallback. Receipt validation is JPEG/PNG and strictly below 3 MiB. References accept letters, numbers and hyphens, matching the design example. The final-record form uses receipt evidence only; there is no separate cleanup-photo field or missing-cleanup-photo confirmation.
 
 The 15 design exports are implemented as consolidated responsive record, commit selection, queue and uploaded-log views, with their validation, preview, confirmation, saved, failed and retry states. Camera hardware and OS picker permissions require a real device; browser tests use real image files and canvas decoding. Visual hierarchy is checked through screenshots and layout/control assertions, not pixel-perfect screenshot matching.
 
@@ -120,3 +120,5 @@ The 15 design exports are implemented as consolidated responsive record, commit 
 | TC102 | 103 | Submit Final Record | Submit Final Record retry or recovery | S2 details validation…; S2 submission failure…; record contract (Vitest) |
 
 `tests/history.spec.ts` verifies successful uploads disappear from active My logs, remain in read-only History after reload, and leave drafts/pending/failed logs active without deleting source data.
+
+`tests/record-return.spec.ts` verifies returning to Records after draft save and final submission, and receipt-only submission without the obsolete cleanup-photo warning.

@@ -32,7 +32,7 @@ Run `npm ci`, then `npm run dev`. The workflow is:
 - Upload and fetch are **local simulations**, not server transfers. Browser online status is a connectivity signal, not proof of server reachability. No log, record or receipt leaves the device.
 - Clearing site data deletes local logs, transfers, records and receipts. There is no backup.
 - Use one tab for the demo; concurrent editing is not a merge workflow.
-- A record requires reference, positive finite weight in kg, material, contamination and a nonblank signature. Other material requires a description. Reference allows letters, numbers and hyphens. Receipt input accepts JPEG/PNG strictly below 3 MiB. Cleanup photo is optional, with confirmation when absent.
+- A record requires reference, positive finite weight in kg, material, contamination and a nonblank signature. Other material requires a description. Reference allows letters, numbers and hyphens. Receipt input accepts JPEG/PNG strictly below 3 MiB. The final record has one image section: the receipt. It does not ask for a separate cleanup photo or warn about one being absent. Photos captured in the original field log remain available in My logs and committed-log details.
 - Existing final records from earlier versions remain readable. Old `/pending` and `/records/new` links redirect to Uploaded Logs; neither creates a blank record.
 
 ## Automated checks
@@ -61,3 +61,5 @@ Browser tests use native offline emulation, real image decoding and IndexedDB pe
 ## My logs after upload
 
 Successfully uploaded logs leave the active Saved logs list and its counts. They remain available in the collapsible History section on My logs, with their upload time and a link to Records. Drafts, committed/pending logs and failed uploads remain active. Moving a log to History does not delete its source data, uploaded snapshot, or final record, and the separation remains after reload.
+
+After saving a record draft or submitting the final record, use Back to Records to return to the main Records page. Saved drafts resume through Continue Record; submitted records open through View Final Record. The submission dialog always asks to confirm locking the record, regardless of the original field-log photo.

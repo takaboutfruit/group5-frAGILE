@@ -9,6 +9,7 @@ import {
 import type { RecordData } from "../records";
 import {
   recordForUploadedLog,
+  listRecords,
   saveRecord,
   transition,
   validateRecord,
@@ -34,12 +35,17 @@ export default function RecordEditor() {
 function RecordForm({ id }: { id?: string }) {
   const [initial] = useState(() => {
     try {
-      return { record: initialRecord(id), error: "" };
+      return {
+        record: initialRecord(id),
+        error: "",
+        persisted: !!id && listRecords().some((r) => r.id === id),
+      };
     } catch (e) {
-      return { record: null, error: message(e) };
+      return { record: null, error: message(e), persisted: false };
     }
   });
   const [record, setRecord] = useState(initial.record);
+  const [savedOnDevice, setSavedOnDevice] = useState(initial.persisted);
   const [baseline, setBaseline] = useState(initial.record);
   const [error, setError] = useState("");
   const location = useLocation();
@@ -198,6 +204,7 @@ function RecordForm({ id }: { id?: string }) {
         ? transition(r, "SUBMITTED")
         : { ...r, updatedAt: new Date().toISOString() };
       saveRecord(saved);
+      setSavedOnDevice(true);
       for (const imageId of stagedImages.current) {
         if (imageId !== saved.receiptImageId)
           void deleteReceipt(imageId).catch(() => {});
@@ -404,9 +411,7 @@ function RecordForm({ id }: { id?: string }) {
         </section>
         <section className="record-section">
           <h2 id="record-receipt">Receipt</h2>
-          <p>
-            JPEG or PNG, smaller than 3 MB. Camera capture or image selection.
-          </p>
+          <p>Attach your receipt photo. JPEG or PNG, smaller than 3 MB.</p>
           {receiptUrl && (
             <img
               className="receipt-image"
@@ -550,12 +555,8 @@ function RecordForm({ id }: { id?: string }) {
           <dd>{date(r.capturedAt)}</dd>
           <dt>Cleanup note</dt>
           <dd>{r.note || "Not added"}</dd>
-          <dt>Photo</dt>
-          <dd>{r.photo ? "Attached" : "Optional — not added"}</dd>
         </dl>
-        {r.photo && (
-          <img className="receipt-image" src={r.photo} alt="Cleanup evidence" />
-        )}
+
         {!locked && (
           <>
             <p>
@@ -579,6 +580,11 @@ function RecordForm({ id }: { id?: string }) {
               >
                 Save as Draft
               </button>
+              {savedOnDevice && (
+                <Link className="button secondary" to="/uploaded">
+                  Back to Records
+                </Link>
+              )}
               <button className="text-button" disabled={busy} onClick={cancel}>
                 Cancel edits
               </button>
@@ -641,16 +647,12 @@ function RecordForm({ id }: { id?: string }) {
       )}
       {confirmation && (
         <Modal
-          title={
-            !r.photo
-              ? "No photo attached. Submit anyway?"
-              : "Submit and lock this record?"
-          }
+          title="Submit and lock this record?"
           onClose={() => setConfirmation(false)}
         >
           <p>
-            {!r.photo ? "A cleanup photo is optional. " : ""}This saves and
-            locks the record on this device. Nothing is sent online.
+            This saves and locks the record on this device. Nothing is sent
+            online.
           </p>
           <div className="modal-actions">
             <button
@@ -658,7 +660,7 @@ function RecordForm({ id }: { id?: string }) {
               disabled={busy}
               onClick={() => void persist(true)}
             >
-              {!r.photo ? "Submit Anyway" : "Confirm submission"}
+              Confirm submission
             </button>
             <button
               className="button secondary"
