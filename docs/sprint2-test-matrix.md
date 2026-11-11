@@ -118,3 +118,5 @@ The 15 design exports are implemented as consolidated responsive record, commit 
 | TC100 | 101 | Submit Final Record | Submit Final Record reload persistence | S2 details validation…; S2 submission failure…; record contract (Vitest) |
 | TC101 | 102 | Submit Final Record | Submit Final Record error feedback | S2 details validation…; S2 submission failure…; record contract (Vitest) |
 | TC102 | 103 | Submit Final Record | Submit Final Record retry or recovery | S2 details validation…; S2 submission failure…; record contract (Vitest) |
+
+`tests/history.spec.ts` verifies successful uploads disappear from active My logs, remain in read-only History after reload, and leave drafts/pending/failed logs active without deleting source data.

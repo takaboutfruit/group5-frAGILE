@@ -57,3 +57,7 @@ Browser tests use native offline emulation, real image decoding and IndexedDB pe
 - Record validation displays red messages directly below reference, weight, material, contamination, receipt and signature controls. Account and field-log inputs also show local guidance when invalid. Correcting a field clears its message.
 - Draft-save feedback uses the bottom notification stack, including in the final-record form. The header shows only Online or Offline.
 - My logs places Create log before Commit Logs with matching action sizes. Records uses spaced cards with a source preview, captured date/location, a labeled note preview and a separate action footer.
+
+## My logs after upload
+
+Successfully uploaded logs leave the active Saved logs list and its counts. They remain available in the collapsible History section on My logs, with their upload time and a link to Records. Drafts, committed/pending logs and failed uploads remain active. Moving a log to History does not delete its source data, uploaded snapshot, or final record, and the separation remains after reload.

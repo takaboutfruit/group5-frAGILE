@@ -2625,3 +2625,49 @@ html {
 .log-detail-list dd {
   white-space: pre-wrap;
 }
+.uploaded-history {
+  margin: 28px 0;
+  border: 1px solid #d4e3e8;
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+}
+.uploaded-history summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  cursor: pointer;
+  font-weight: 650;
+  list-style: none;
+}
+.uploaded-history summary::-webkit-details-marker {
+  display: none;
+}
+.uploaded-history[open] summary > svg {
+  transform: rotate(180deg);
+}
+.history-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: #607984;
+  margin-left: 10px;
+}
+.history-row {
+  padding: 20px;
+  border-top: 1px solid #e3ecef;
+}
+.history-row p {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.history-row .button {
+  margin-top: 8px;
+}
+.uploads-complete .empty-state {
+  min-height: 230px;
+  padding: 28px;
+}
+.uploads-complete .empty-illustration {
+  display: none;
+}

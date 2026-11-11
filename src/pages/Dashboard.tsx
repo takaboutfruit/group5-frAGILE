@@ -11,6 +11,7 @@ import {
   ArrowRight,
   Trash2,
   ShieldCheck,
+  ChevronDown,
 } from "lucide-react";
 import {
   commitLogs,
@@ -18,7 +19,7 @@ import {
   transferLabel,
   missingLogFields,
 } from "../transfers";
-import type { TransferStatus } from "../transfers";
+import type { LogTransfer, TransferStatus } from "../transfers";
 import type { Draft } from "../model";
 import { listDrafts, deleteDraft } from "../model";
 import { Alert, Modal, Badge } from "../components/ui";
@@ -45,6 +46,7 @@ export default function Dashboard() {
       setCommitError(message(e));
     }
   }
+  const [history, setHistory] = useState<LogTransfer[]>([]);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [statuses, setStatuses] = useState<Record<string, TransferStatus>>({});
   const [error, setError] = useState("");
@@ -55,10 +57,19 @@ export default function Dashboard() {
   );
   function load() {
     try {
-      setDrafts(listDrafts());
-      setStatuses(
-        Object.fromEntries(listTransfers().map((r) => [r.id, r.status])),
-      );
+      const sources = listDrafts();
+      const transfers = listTransfers();
+      const uploaded = transfers
+        .filter((t) => t.status === "UPLOADED")
+        .sort((a, b) =>
+          (b.uploadedAt || b.updatedAt).localeCompare(
+            a.uploadedAt || a.updatedAt,
+          ),
+        );
+      const uploadedIds = new Set(uploaded.map((t) => t.id));
+      setDrafts(sources.filter((d) => !uploadedIds.has(d.id)));
+      setHistory(uploaded);
+      setStatuses(Object.fromEntries(transfers.map((t) => [t.id, t.status])));
       setError("");
     } catch (e) {
       setError(message(e));
@@ -86,7 +97,9 @@ export default function Dashboard() {
     }
   }
   return (
-    <main className="dashboard page">
+    <main
+      className={`dashboard page ${history.length && !drafts.length ? "uploads-complete" : ""}`}
+    >
       <div className="page-title-row">
         <div>
           <div className="eyebrow">YOUR OCEAN FIELDWORK</div>
@@ -180,9 +193,15 @@ export default function Dashboard() {
           <span className="eyebrow">A FRESH START</span>
           <h2>Your next cleanup belongs here.</h2>
           <p>
-            Capture the location, add a photo, and note what you recovered.
-            <br />
-            Your progress stays with you on this device.
+            {history.length ? (
+              "Uploaded logs have moved to History below. Create a new log for your next cleanup."
+            ) : (
+              <>
+                Capture the location, add a photo, and note what you recovered.
+                <br />
+                Your progress stays with you on this device.
+              </>
+            )}
           </p>
           <Link className="button primary" to="/logs/new">
             <Plus size={18} /> Create your first log
@@ -266,6 +285,41 @@ export default function Dashboard() {
             </article>
           ))}
         </div>
+      )}
+      {history.length > 0 && (
+        <details className="uploaded-history">
+          <summary>
+            <span>
+              History{" "}
+              <span className="history-count">
+                {history.length} uploaded{" "}
+                {history.length === 1 ? "log" : "logs"}
+              </span>
+            </span>
+            <ChevronDown size={18} />
+          </summary>
+          <div className="history-list" aria-label="Uploaded log history">
+            {history.map((log) => (
+              <article
+                className="history-row"
+                key={log.id}
+                data-testid="history-log"
+              >
+                <div className="queue-row-top">
+                  <strong>Log #{shortId(log.id)}</strong>
+                  <Badge>Uploaded</Badge>
+                </div>
+                <p>{log.note || "Cleanup log"}</p>
+                <p className="small muted">
+                  Uploaded {date(log.uploadedAt || log.updatedAt)}
+                </p>
+                <Link className="button secondary" to="/uploaded">
+                  View in Records
+                </Link>
+              </article>
+            ))}
+          </div>
+        </details>
       )}
       <aside className="storage-note">
         <ShieldCheck size={19} />

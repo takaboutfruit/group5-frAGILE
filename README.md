@@ -4,7 +4,7 @@ A responsive ocean-cleanup field log built from the mockups in `frAGILE_frontend
 
 ## Sprint 2
 
-Save logs offline in **My logs**. They do not enter Sync Queue until you press **Commit Logs** on My logs, select the logs, and confirm. Once online, upload committed logs from **Sync Queue**; successful uploads leave the queue. Open the separate **Records** page and press **Fetch Logs** to see uploaded logs, then choose **New Record** to complete and submit a final record using the original log details. Final submission does not queue the record again.
+Save logs offline in **My logs**. They do not enter Sync Queue until you press **Commit Logs** on My logs, select the logs, and confirm. Once online, upload committed logs from **Sync Queue**; successful uploads leave the queue and move from active My logs into its History section. Open the separate **Records** page and press **Fetch Logs** to see uploaded logs, then choose **New Record** to complete and submit a final record using the original log details. Final submission does not queue the record again.
 
 Receipt upload/retake, reference and weight editing, signature capture/clear, material/contamination selection, and locally locked final records are implemented. Commit requires GPS, captured date/time and a cleanup photo; notes are optional and incomplete drafts remain editable. A single sticky My logs → Sync queue → Records header follows the workflow. Records remembers its initial fetch across navigation and reload. Queue entries include a read-only detail view; validation errors appear beneath their fields, and save notifications appear near the bottom of the screen. Upload/fetch are frontend simulations with no server transfer. Offline work is supported after initial load.
 
