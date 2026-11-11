@@ -138,9 +138,7 @@ test("mobile layout and local draft editing without connectivity", async ({
   await page.getByLabel("Cleanup note").fill("Offline cleanup record.");
   await page.getByRole("button", { name: "Save draft", exact: true }).click();
   await expect(page.getByText("Offline cleanup record.")).toBeVisible();
-  await expect(
-    page.getByText("You’re offline.", { exact: false }),
-  ).toBeVisible();
+  await expect(page.getByTestId("connectivity")).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -164,13 +162,11 @@ test("empty drafts, unsupported photos, discarded edits, and missing drafts", as
     "Add a location, photo, or note",
   );
   await page.getByRole("button", { name: "3 Photo" }).click();
-  await page
-    .getByLabel("Take or choose a photo")
-    .setInputFiles({
-      name: "not-a-photo.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.from("not an image"),
-    });
+  await page.getByLabel("Take or choose a photo").setInputFiles({
+    name: "not-a-photo.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("not an image"),
+  });
   await expect(page.getByRole("alert")).toContainText(
     "Choose a JPG, PNG, or WebP photo",
   );
@@ -199,7 +195,9 @@ test("registration stays optional and does not change existing device drafts", a
   const original = await page.evaluate(() =>
     localStorage.getItem("fragile:v1:drafts"),
   );
-  await page.getByRole("link", { name: "Create account", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Create account (optional)", exact: true })
+    .click();
   await page.getByLabel("Full name").fill("Maya Chen");
   await page.getByLabel("Email address").fill("maya@example.com");
   await page.getByLabel("Password", { exact: true }).fill("OceanDemo123!");

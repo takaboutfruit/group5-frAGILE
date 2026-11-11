@@ -1,22 +1,64 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useLayoutEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Waves, CheckCircle2, TriangleAlert, X } from "lucide-react";
 export function Alert({
   children,
   success = false,
+  inline = false,
+  onDismiss,
 }: {
   children: ReactNode;
   success?: boolean;
+  inline?: boolean;
+  onDismiss?: () => void;
 }) {
-  return (
+  const anchor = useRef<HTMLSpanElement>(null);
+  const [target, setTarget] = useState<HTMLElement | null>(null);
+  const [inDialog, setInDialog] = useState(false);
+  const [visible, setVisible] = useState(true);
+  useLayoutEffect(() => {
+    setInDialog(!!anchor.current?.closest("dialog"));
+    setTarget(document.getElementById("notifications"));
+  }, []);
+  useEffect(() => {
+    setVisible(true);
+  }, [children]);
+  useEffect(() => {
+    if (inDialog && visible)
+      anchor.current?.nextElementSibling?.scrollIntoView({ block: "nearest" });
+  }, [inDialog, visible, children]);
+  const notice = visible ? (
     <div
-      className={`notice ${success ? "success" : "warning"}`}
+      className={`notice ${success ? "success" : "warning"} ${inline || inDialog ? "" : "toast-notice"}`}
       role={success ? "status" : "alert"}
     >
       {success ? <CheckCircle2 size={20} /> : <TriangleAlert size={20} />}
       <div>{children}</div>
+      {!inline && (
+        <button
+          aria-label="Dismiss notification"
+          className="icon-button"
+          onClick={() => {
+            setVisible(false);
+            onDismiss?.();
+          }}
+        >
+          <X size={18} />
+        </button>
+      )}
     </div>
+  ) : null;
+  return (
+    <>
+      <span ref={anchor} hidden />
+      {inline || inDialog
+        ? notice
+        : target
+          ? createPortal(notice, target)
+          : null}
+    </>
   );
 }
 export function Modal({
@@ -66,7 +108,7 @@ export function Badge({ children }: { children: ReactNode }) {
 }
 export function Brand() {
   return (
-    <Link to="/" className="brand">
+    <Link to="/logs" className="brand">
       <span className="brand-icon">
         <Waves size={24} />
       </span>

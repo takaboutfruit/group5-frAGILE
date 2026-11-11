@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { FileText, UserPlus, Waves, WifiOff } from "lucide-react";
+import { Waves } from "lucide-react";
 import { Brand } from "./components/ui";
 import Welcome from "./pages/Welcome";
 import Register from "./pages/Register";
@@ -12,6 +12,9 @@ import Editor, { EditorRoute } from "./pages/Editor";
 export default function App() {
   const [online, setOnline] = useState(navigator.onLine);
   const location = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
   useEffect(() => {
     const change = () => setOnline(navigator.onLine);
     window.addEventListener("online", change);
@@ -26,37 +29,45 @@ export default function App() {
       <header className="topbar">
         <div className="topbar-inner">
           <Brand />
+          <div
+            data-testid="connectivity"
+            className={`workflow-status ${online ? "connected" : "disconnected"}`}
+            role="status"
+          >
+            {online ? "Online · Saved on device" : "Offline · Saved on device"}
+          </div>
           <nav aria-label="Main navigation">
-            <Link to="/sync">Sync Queue</Link>
-            <Link to="/uploaded">Uploaded Logs</Link>
-            <Link
-              to="/logs"
-              className={location.pathname === "/logs" ? "nav-active" : ""}
-            >
-              <FileText size={17} /> My logs
-            </Link>
-            <Link
-              to="/register"
-              className={location.pathname === "/register" ? "nav-active" : ""}
-            >
-              <UserPlus size={17} /> Create account
-            </Link>
+            {[
+              {
+                to: "/logs",
+                label: "My logs",
+                active: location.pathname.startsWith("/logs"),
+              },
+              {
+                to: "/sync",
+                label: "Sync queue",
+                active: location.pathname === "/sync",
+              },
+              {
+                to: "/uploaded",
+                label: "Records",
+                active:
+                  location.pathname === "/uploaded" ||
+                  location.pathname.startsWith("/records"),
+              },
+            ].map((item) => (
+              <Link
+                key={item.to}
+                to={item.to}
+                aria-current={item.active ? "page" : undefined}
+                className={item.active ? "nav-active" : ""}
+              >
+                {item.label}
+              </Link>
+            ))}
           </nav>
         </div>
       </header>
-      <div
-        data-testid="connectivity"
-        className={`connection-status ${online ? "connected" : "disconnected"}`}
-        role="status"
-      >
-        {online ? "Online · Saved on device" : "Offline · Saved on device"}
-      </div>
-      {!online && (
-        <div className="offline-strip">
-          <WifiOff size={15} /> You’re offline. You can keep creating logs and
-          editing drafts on this device.
-        </div>
-      )}
       <Routes>
         <Route path="/sync" element={<SyncQueue />} />
         <Route path="/uploaded" element={<UploadedLogs />} />
@@ -84,13 +95,14 @@ export default function App() {
           }
         />
       </Routes>
+      <div id="notifications" aria-label="Notifications" />
       <footer className="site-footer">
         <span>
           <Waves size={16} /> Small actions. Cleaner oceans.
         </span>
         <span>
-          Sprint 2 prototype <span className="footer-dot">·</span> Stored on
-          this device
+          <Link to="/register">Create account (optional)</Link> · Sprint 2
+          prototype <span className="footer-dot">·</span> Stored on this device
         </span>
       </footer>
     </div>

@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Plus,
-  X,
   FilePenLine,
   Camera,
   HardDrive,
@@ -13,12 +12,24 @@ import {
   Trash2,
   ShieldCheck,
 } from "lucide-react";
-import { commitLogs, listTransfers, transferLabel } from "../transfers";
+import {
+  commitLogs,
+  listTransfers,
+  transferLabel,
+  missingLogFields,
+} from "../transfers";
 import type { TransferStatus } from "../transfers";
 import type { Draft } from "../model";
-import { listDrafts, completion, deleteDraft } from "../model";
+import { listDrafts, deleteDraft } from "../model";
 import { Alert, Modal, Badge } from "../components/ui";
 import { message, date, shortId } from "../utils";
+function completion(d: Draft) {
+  return [
+    !!d.location,
+    Number.isFinite(Date.parse(d.capturedAt)),
+    !!d.photo,
+  ].filter(Boolean).length;
+}
 export default function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -57,7 +68,11 @@ export default function Dashboard() {
     load();
     const sync = () => load();
     window.addEventListener("storage", sync);
-    return () => window.removeEventListener("storage", sync);
+    window.addEventListener("fragile:transfers", sync);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("fragile:transfers", sync);
+    };
   }, []);
   function remove() {
     if (!target) return;
@@ -79,7 +94,8 @@ export default function Dashboard() {
             My field logs<span className="title-dot">.</span>
           </h1>
           <p>
-            Your cleanup records, saved on this device. No account required.
+            Capture your fieldwork here. Save drafts anytime; commit completed
+            logs when they’re ready to upload.
           </p>
         </div>
         <div className="record-actions">
@@ -100,16 +116,9 @@ export default function Dashboard() {
         </div>
       </div>
       {notice && (
-        <div className="dismiss-notice">
-          <Alert success>{notice}</Alert>
-          <button
-            aria-label="Dismiss notification"
-            className="icon-button"
-            onClick={() => setNotice("")}
-          >
-            <X size={18} />
-          </button>
-        </div>
+        <Alert success onDismiss={() => setNotice("")}>
+          {notice}
+        </Alert>
       )}
       {error && (
         <>
@@ -203,7 +212,7 @@ export default function Dashboard() {
                 <div className="draft-card-title">
                   <h3>Log #{shortId(d.id)}</h3>
                   <span className="small muted">
-                    {completion(d)}/4 complete
+                    {completion(d)}/3 required fields
                   </span>
                 </div>
                 <p className="draft-note">
@@ -222,7 +231,7 @@ export default function Dashboard() {
                   </span>
                 </div>
                 <div className="progress-track">
-                  <span style={{ width: `${(completion(d) / 4) * 100}%` }} />
+                  <span style={{ width: `${(completion(d) / 3) * 100}%` }} />
                 </div>
                 {statuses[d.id] && (
                   <Link
@@ -281,6 +290,7 @@ export default function Dashboard() {
               <label key={d.id} className="commit-choice">
                 <input
                   type="checkbox"
+                  disabled={missingLogFields(d).length > 0}
                   checked={selectedLogs.includes(d.id)}
                   onChange={(e) =>
                     setSelectedLogs((ids) =>
@@ -292,6 +302,12 @@ export default function Dashboard() {
                 />
                 <span>
                   Log #{shortId(d.id)} · {d.note || "No note"}
+                  {missingLogFields(d).length > 0 && (
+                    <small className="commit-missing">
+                      Needs {missingLogFields(d).join(" and ")}. Edit this draft
+                      before committing.
+                    </small>
+                  )}
                 </span>
               </label>
             ))}

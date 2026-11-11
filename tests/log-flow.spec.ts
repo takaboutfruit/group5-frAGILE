@@ -1,7 +1,9 @@
+import { completeRequiredLog, fetchIfNeeded } from "./helpers";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 async function saveLog(page: Page, note: string) {
   await page.getByRole("link", { name: "Create log", exact: true }).click();
+  await completeRequiredLog(page);
   await page.getByRole("button", { name: "4 Note", exact: true }).click();
   await page.getByLabel("Cleanup note").fill(note);
   await page.getByRole("button", { name: "Save draft", exact: true }).click();
@@ -20,7 +22,7 @@ test("offline save stays out of queue; commit selection, upload, fetch and final
   const source = sources.find(
     (d: { note: string }) => d.note === "Offline nets",
   );
-  await page.getByRole("link", { name: "Sync Queue", exact: true }).click();
+  await page.getByRole("link", { name: "Sync queue", exact: true }).click();
   await expect(page.getByTestId("queue-row")).toHaveCount(0);
   await page.getByRole("link", { name: "My logs", exact: true }).click();
   await page.getByRole("button", { name: "Commit Logs", exact: true }).click();
@@ -42,11 +44,11 @@ test("offline save stays out of queue; commit selection, upload, fetch and final
     page.getByText("Your sync queue is empty.", { exact: true }),
   ).toBeVisible();
   await page
-    .getByRole("link", { name: "Uploaded Logs", exact: true })
+    .getByRole("link", { name: "Records", exact: true })
     .first()
     .click();
   await expect(page.getByTestId("uploaded-log")).toHaveCount(0);
-  await page.getByRole("button", { name: "Fetch Logs", exact: true }).click();
+  await fetchIfNeeded(page);
   await expect(page.getByTestId("uploaded-log")).toHaveCount(1);
   await expect(page.getByTestId("uploaded-log")).toContainText("Offline nets");
   await page.getByRole("link", { name: "New Record", exact: true }).click();
@@ -67,12 +69,12 @@ test("offline save stays out of queue; commit selection, upload, fetch and final
     .getByRole("button", { name: "Submit Final Record", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "Submit Anyway", exact: true })
+    .getByRole("button", { name: "Confirm submission", exact: true })
     .click();
   await expect(
     page.getByText("Record submitted", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Sync Queue", exact: true }).click();
+  await page.getByRole("link", { name: "Sync queue", exact: true }).click();
   await expect(page.getByTestId("queue-row")).toHaveCount(0);
   expect(
     await page.evaluate(() =>
@@ -93,7 +95,7 @@ test("uncommitted logs cannot create records and fetch requires connection", asy
   await expect(page.getByRole("alert")).toContainText("uploaded");
   await page.goto("/uploaded");
   await context.setOffline(true);
-  await page.getByRole("button", { name: "Fetch Logs", exact: true }).click();
+  await fetchIfNeeded(page);
   await expect(page.getByRole("alert")).toContainText("Reconnect");
   await expect(page.getByTestId("uploaded-log")).toHaveCount(0);
 });
@@ -153,10 +155,10 @@ test("one Upload Log action uploads all confirmed logs and empties the queue", a
   await page.getByRole("button", { name: "Upload Log", exact: true }).click();
   await expect(page.getByTestId("queue-row")).toHaveCount(0);
   await page
-    .getByRole("link", { name: "Uploaded Logs", exact: true })
+    .getByRole("link", { name: "Records", exact: true })
     .first()
     .click();
-  await page.getByRole("button", { name: "Fetch Logs", exact: true }).click();
+  await fetchIfNeeded(page);
   await expect(page.getByTestId("uploaded-log")).toHaveCount(2);
 });
 

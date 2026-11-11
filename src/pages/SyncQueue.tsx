@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import type { LogTransfer } from "../transfers";
 import {
   listTransfers,
@@ -7,19 +6,17 @@ import {
   updateTransfers,
   transferLabel,
 } from "../transfers";
-import { useOnline } from "../connectivity";
 import { Alert, Badge } from "../components/ui";
 import { date, message, shortId } from "../utils";
 const running = new Set<string>();
 export default function SyncQueue() {
-  const online = useOnline();
   const [rows, setRows] = useState<LogTransfer[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [outcome, setOutcome] = useState("success");
   const [busy, setBusy] = useState(false);
   const interrupted = useRef(false);
-  function load() {
+  function load(clearError = true) {
     try {
       for (const t of listTransfers())
         if (t.status === "SYNCING" && !running.has(t.id))
@@ -30,20 +27,26 @@ export default function SyncQueue() {
             "Upload interrupted. Retry when online.",
           );
       setRows(listTransfers().filter((t) => t.status !== "UPLOADED"));
-      setError("");
+      if (clearError) setError("");
     } catch (e) {
       setError(message(e));
     }
   }
   useEffect(() => {
     load();
-    window.addEventListener("storage", load);
-    window.addEventListener("fragile:transfers", load);
+    const changed = () => load(false);
+    window.addEventListener("storage", changed);
+    window.addEventListener("fragile:transfers", changed);
     return () => {
-      window.removeEventListener("storage", load);
-      window.removeEventListener("fragile:transfers", load);
+      window.removeEventListener("storage", changed);
+      window.removeEventListener("fragile:transfers", changed);
     };
   }, []);
+  useEffect(() => {
+    if (!rows.some((t) => t.status === "SYNCING" && !running.has(t.id))) return;
+    const timer = window.setInterval(() => load(false), 1500);
+    return () => window.clearInterval(timer);
+  }, [rows, busy]);
   async function upload() {
     setError("");
     setNotice("");
@@ -86,11 +89,27 @@ export default function SyncQueue() {
       } else {
         updateTransfers(ids, "UPLOADED");
         setNotice(
-          "Logs uploaded successfully (simulated). They are now available on Uploaded Logs.",
+          "Logs uploaded successfully (simulated). They are now available on Records.",
         );
       }
       setRows(listTransfers().filter((t) => t.status !== "UPLOADED"));
     } catch (e) {
+      ids.forEach((id) => running.delete(id));
+      try {
+        const pending = listTransfers().filter(
+          (t) => ids.includes(t.id) && t.status === "SYNCING",
+        );
+        if (pending.length)
+          updateTransfers(
+            pending.map((t) => t.id),
+            "FAILED",
+            localStorage,
+            message(e),
+          );
+        setRows(listTransfers().filter((t) => t.status !== "UPLOADED"));
+      } catch {
+        /* The recovery timer retries when storage becomes available. */
+      }
       setError(message(e));
     } finally {
       ids.forEach((id) => running.delete(id));
@@ -101,22 +120,12 @@ export default function SyncQueue() {
   return (
     <main className="narrow page queue-page">
       <div className="eyebrow">COMMITTED FIELD LOGS</div>
-      <h1>Synchronization Queue.</h1>
+      <h1>Sync queue.</h1>
       <p>
-        Only logs confirmed with Commit Logs in My logs appear here. Successful
-        uploads leave this queue.
+        Upload the logs you committed in My logs. This queue tracks transfer
+        progress only; successful uploads leave automatically.
       </p>
-      <div className="record-links">
-        <Link to="/logs">My field logs</Link>
-        <Link to="/uploaded">Uploaded Logs</Link>
-      </div>
-      <div
-        className={`connection-status ${online ? "connected" : "disconnected"}`}
-      >
-        {online
-          ? "Online · Simulated upload available"
-          : "Offline · Logs saved on device"}
-      </div>
+
       <div className="queue-stats">
         <div>
           <strong>{rows.length}</strong>Total Queued
@@ -141,7 +150,7 @@ export default function SyncQueue() {
           </p>
         </section>
       )}
-      <div className="queue-list">
+      <div className="queue-list transfer-list">
         {rows.map((t) => (
           <article key={t.id} data-testid="queue-row" className="queue-row">
             <div className="queue-row-top">
@@ -149,27 +158,11 @@ export default function SyncQueue() {
               <Badge>{transferLabel[t.status]}</Badge>
             </div>
             <p>{t.note || "Cleanup log"}</p>
-            <p className="small muted">Captured: {date(t.capturedAt)}</p>
-            {t.photo && (
-              <img
-                className="receipt-image"
-                src={t.photo}
-                alt="Committed cleanup evidence"
-              />
-            )}
+            <p className="small muted">Committed: {date(t.committedAt)}</p>
             {t.syncError && <p className="queue-error">{t.syncError}</p>}
           </article>
         ))}
       </div>
-      <section className="record-section">
-        <button
-          className="button secondary full"
-          onClick={load}
-          disabled={busy}
-        >
-          Refresh Local Queue
-        </button>
-      </section>
       {rows.length > 0 && (
         <section className="record-section">
           <h2>Upload Log</h2>

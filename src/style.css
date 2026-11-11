@@ -2306,3 +2306,157 @@ label small {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+/* Single workflow header and accessible action feedback. */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: auto;
+  min-height: 88px;
+  box-shadow: 0 2px 12px #0d3e580d;
+}
+.topbar-inner {
+  min-height: 88px;
+  padding: 12px 0;
+  gap: 18px;
+}
+.topbar nav {
+  gap: 6px;
+  order: 2;
+}
+.topbar nav a {
+  padding: 10px 18px;
+  border-radius: 9px;
+  min-height: 44px;
+  justify-content: center;
+}
+.topbar nav a.nav-active {
+  background: #dff3ee;
+  color: #07534c;
+  box-shadow: inset 0 -3px #0b6b62;
+}
+.workflow-status {
+  order: 3;
+  font-size: 12px;
+  white-space: nowrap;
+  padding: 7px 10px;
+  border-radius: 20px;
+}
+.workflow-status.connected {
+  color: #166534;
+  background: #edf7f0;
+}
+.workflow-status.disconnected {
+  color: #9d2020;
+  background: #fff0ed;
+}
+.button.primary,
+.record-actions > a.button.primary,
+.photo-actions > .button.primary {
+  background: #0b6b62;
+  color: #fff;
+  border-color: #0b6b62;
+}
+.button.primary:hover {
+  background: #07554e;
+  color: #fff;
+}
+#notifications {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(540px, calc(100% - 32px));
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+  max-height: 50vh;
+  overflow: auto;
+}
+#notifications .notice {
+  pointer-events: auto;
+  margin: 0;
+  box-shadow: 0 8px 32px #0d3e5833;
+  align-items: center;
+}
+.toast-notice > div {
+  flex: 1;
+}
+.toast-notice .icon-button {
+  flex-shrink: 0;
+}
+.commit-missing {
+  display: block;
+  color: #9a3412;
+  margin-top: 8px;
+  font-weight: 500;
+}
+.transfer-list {
+  gap: 0;
+  border: 1px solid #d4e3e8;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.transfer-list:empty {
+  border: 0;
+}
+.transfer-list .queue-row {
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid #d4e3e8;
+  padding: 18px 22px;
+}
+.transfer-list .queue-row:last-child {
+  border-bottom: 0;
+}
+html {
+  scroll-padding-top: 130px;
+}
+@media (max-width: 800px) {
+  .topbar-inner {
+    flex-wrap: wrap;
+    padding: 12px 20px;
+  }
+  .topbar nav {
+    width: 100%;
+    order: 3;
+    justify-content: space-between;
+  }
+  .topbar nav a {
+    flex: 1;
+    padding: 8px 12px;
+  }
+  .workflow-status {
+    order: 2;
+    margin-left: auto;
+  }
+  .brand {
+    font-size: 22px;
+  }
+}
+@media (max-width: 420px) {
+  .workflow-status {
+    font-size: 10px;
+    padding: 5px 7px;
+  }
+  .topbar-inner {
+    gap: 10px;
+    padding: 10px 16px;
+  }
+  .topbar nav a {
+    font-size: 13px;
+  }
+  html {
+    scroll-padding-top: 145px;
+  }
+}
+@media (min-width: 801px) {
+  #notifications {
+    left: auto;
+    right: 24px;
+    transform: none;
+    width: 400px;
+  }
+}

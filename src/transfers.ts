@@ -57,6 +57,13 @@ function write(rows: LogTransfer[], storage: Store) {
     );
   }
 }
+export function missingLogFields(log: Draft): string[] {
+  const missing: string[] = [];
+  if (!log.location) missing.push("GPS location");
+  if (!Number.isFinite(Date.parse(log.capturedAt))) missing.push("date/time");
+  if (!log.photo) missing.push("cleanup photo");
+  return missing;
+}
 export function commitLogs(ids: string[], storage: Store = localStorage) {
   if (!ids.length) throw Error("Select at least one saved log to commit.");
   const sources = listDrafts(storage);
@@ -68,6 +75,10 @@ export function commitLogs(ids: string[], storage: Store = localStorage) {
     if (!source)
       throw Error(
         "A selected log is no longer available. Refresh My logs and retry.",
+      );
+    if (!transfers.some((t) => t.id === id) && missingLogFields(source).length)
+      throw Error(
+        `Complete ${missingLogFields(source).join(" and ")} before committing Log #${source.id.slice(0, 6)}. Notes are optional.`,
       );
     if (!transfers.some((t) => t.id === id))
       added.push({ ...source, status: "COMMITTED", committedAt: now });

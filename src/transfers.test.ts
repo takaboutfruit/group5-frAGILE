@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { newDraft } from "./model";
+import { newDraft as blankDraft } from "./model";
 import {
   commitLogs,
   listTransfers,
@@ -7,6 +7,11 @@ import {
   updateTransfer,
   updateTransfers,
 } from "./transfers";
+const newDraft = () => ({
+  ...blankDraft(),
+  location: { latitude: 13, longitude: 100, accuracy: 5 },
+  photo: "data:image/png;base64,abc",
+});
 const memory = () => {
   const m = new Map<string, string>();
   return {
@@ -92,4 +97,11 @@ it("validates a whole upload batch before changing any selected log", () => {
   updateTransfers([a.id, b.id], "SYNCING", s);
   updateTransfers([a.id, b.id], "UPLOADED", s);
   expect(listUploadedLogs(s)).toHaveLength(2);
+});
+it("refuses incomplete source logs before commit while leaving notes optional", () => {
+  const s = memory();
+  const d = { ...newDraft(), location: null, photo: null };
+  s.setItem("fragile:v1:drafts", JSON.stringify([d]));
+  expect(() => commitLogs([d.id], s)).toThrow("GPS");
+  expect(listTransfers(s)).toEqual([]);
 });

@@ -181,8 +181,10 @@ function RecordForm({ id }: { id?: string }) {
         baseline.receiptImageId !== saved.receiptImageId
       )
         void deleteReceipt(baseline.receiptImageId).catch(() => {});
-      if (final) setSubmitted(true);
-      else setNotice("Draft saved on this device.");
+      if (final) {
+        setSubmitted(true);
+        setNotice("Final record submitted successfully. Saved on this device.");
+      } else setNotice("Draft saved on this device.");
       if (!id) {
         bypass.current = true;
         navigate(`/records/${saved.id}`, {
@@ -227,10 +229,7 @@ function RecordForm({ id }: { id?: string }) {
       <p>
         Log #{shortId(r.id)} · <Badge>{statusLabel[r.status]}</Badge>
       </p>
-      <div className="record-links">
-        <Link to="/sync">View Sync Queue</Link>
-        <Link to="/logs">My field logs</Link>
-      </div>
+
       <div className="notice neutral">
         <p>
           Saved on this device. Uploads are simulated; no data is sent to a
@@ -238,13 +237,17 @@ function RecordForm({ id }: { id?: string }) {
         </p>
       </div>
       {(submitted || locked) && (
-        <Alert success>
+        <Alert success inline>
           <span>Record submitted</span> · Locked locally · Final submission
           complete.
         </Alert>
       )}
       {error && !preview && <Alert>{error}</Alert>}
-      {notice && <Alert success>{notice}</Alert>}
+      {notice && (
+        <Alert success inline>
+          {notice}
+        </Alert>
+      )}
       <fieldset disabled={locked || busy} className="record-fields">
         <section className="record-section">
           <h2>Reference & weight</h2>
@@ -495,8 +498,8 @@ function RecordForm({ id }: { id?: string }) {
         )}
         {locked && (
           <div className="record-actions">
-            <Link className="button primary" to="/sync">
-              View Sync Queue
+            <Link className="button primary" to="/uploaded">
+              Back to Records
             </Link>
             <Link className="button secondary" to="/logs/new">
               Create log

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import type { LogTransfer } from "../transfers";
 import { listUploadedLogs } from "../transfers";
@@ -10,18 +10,45 @@ export default function UploadedLogs() {
   const online = useOnline();
   const [logs, setLogs] = useState<LogTransfer[]>([]);
   const [recordStates, setRecordStates] = useState<Record<string, string>>({});
-  const [fetched, setFetched] = useState(false);
+  const [fetched, setFetched] = useState(() => {
+    try {
+      return localStorage.getItem("fragile:v2:records-fetched") === "yes";
+    } catch {
+      return false;
+    }
+  });
   const [error, setError] = useState("");
+  function load() {
+    const records = listRecords();
+    setLogs(listUploadedLogs());
+    setRecordStates(Object.fromEntries(records.map((r) => [r.id, r.status])));
+  }
+  useEffect(() => {
+    if (!fetched) return;
+    const refresh = () => {
+      try {
+        load();
+        setError("");
+      } catch (e) {
+        setError(message(e));
+      }
+    };
+    refresh();
+    window.addEventListener("storage", refresh);
+    window.addEventListener("fragile:transfers", refresh);
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("fragile:transfers", refresh);
+    };
+  }, [fetched]);
   function fetchLogs() {
     if (!navigator.onLine) {
       setError("Reconnect to fetch uploaded logs.");
       return;
     }
     try {
-      const records = listRecords();
-      const uploaded = listUploadedLogs();
-      setLogs(uploaded);
-      setRecordStates(Object.fromEntries(records.map((r) => [r.id, r.status])));
+      load();
+      localStorage.setItem("fragile:v2:records-fetched", "yes");
       setFetched(true);
       setError("");
     } catch (e) {
@@ -31,25 +58,24 @@ export default function UploadedLogs() {
   return (
     <main className="narrow page queue-page">
       <div className="eyebrow">UPLOADED FIELD LOGS</div>
-      <h1>Uploaded logs.</h1>
+      <h1>Records.</h1>
       <p>
-        Fetch previously uploaded logs, then create a final record from an
-        existing log. Uncommitted and waiting logs are not shown here.
+        Create or continue a final record from an uploaded log. Your saved
+        record progress appears here.
       </p>
-      <div className="record-links">
-        <Link to="/logs">My field logs</Link>
-        <Link to="/sync">View Sync Queue</Link>
-      </div>
-      <button className="button primary" onClick={fetchLogs}>
-        Fetch Logs
-      </button>
+
+      {!fetched && (
+        <button className="button primary" onClick={fetchLogs}>
+          Fetch Logs
+        </button>
+      )}
       <p className="small muted">
         Local upload simulation · No server transfer.{" "}
         {online ? "Online" : "Offline"}
       </p>
       {error && <Alert>{error}</Alert>}
       {!fetched && <p>Press Fetch Logs when online to load uploaded logs.</p>}
-      {fetched && !logs.length && (
+      {fetched && !error && !logs.length && (
         <section className="empty-state">
           <h2>No uploaded logs.</h2>
           <p>Commit saved logs in My logs, then upload them from Sync Queue.</p>
@@ -60,7 +86,13 @@ export default function UploadedLogs() {
           <article className="queue-row" data-testid="uploaded-log" key={t.id}>
             <div className="queue-row-top">
               <strong>Log #{shortId(t.id)}</strong>
-              <Badge>Uploaded (simulated)</Badge>
+              <Badge>
+                {recordStates[t.id] === "SUBMITTED"
+                  ? "Final record submitted"
+                  : recordStates[t.id] === "DRAFT"
+                    ? "Record in progress"
+                    : "Ready for record"}
+              </Badge>
             </div>
             <p>{t.note || "Cleanup log"}</p>
             <p className="small muted">Captured: {date(t.capturedAt)}</p>

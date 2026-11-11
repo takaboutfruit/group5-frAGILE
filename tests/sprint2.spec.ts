@@ -1,3 +1,4 @@
+import { completeRequiredLog, fetchIfNeeded } from "./helpers";
 import { test, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 const png = Buffer.from(
@@ -13,6 +14,7 @@ async function commitSaved(page: Page) {
 }
 async function queueLog(page: Page) {
   await page.goto("/logs/new");
+  await completeRequiredLog(page);
   await page.getByRole("button", { name: "4 Note", exact: true }).click();
   await page.getByLabel("Cleanup note").fill("Sprint 2 source log");
   await page.getByRole("button", { name: "Save draft", exact: true }).click();
@@ -20,10 +22,10 @@ async function queueLog(page: Page) {
 }
 async function fetchUploaded(page: Page) {
   await page
-    .getByRole("link", { name: "Uploaded Logs", exact: true })
+    .getByRole("link", { name: "Records", exact: true })
     .first()
     .click();
-  await page.getByRole("button", { name: "Fetch Logs", exact: true }).click();
+  await fetchIfNeeded(page);
 }
 async function openRecord(page: Page) {
   await queueLog(page);
@@ -57,7 +59,7 @@ async function finalize(page: Page) {
     .getByRole("button", { name: "Submit Final Record", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "Submit Anyway", exact: true })
+    .getByRole("button", { name: "Confirm submission", exact: true })
     .click();
   await expect(
     page.getByText("Record submitted", { exact: true }),
@@ -141,6 +143,7 @@ test("S2 Chrome offline commit, online upload failure and retry without duplicat
   await page.goto("/logs");
   await context.setOffline(true);
   await page.getByRole("link", { name: "Create log", exact: true }).click();
+  await completeRequiredLog(page);
   await page.getByRole("button", { name: "4 Note", exact: true }).click();
   await page.getByLabel("Cleanup note").fill("Offline source");
   await page.getByRole("button", { name: "Save draft", exact: true }).click();
@@ -157,7 +160,7 @@ test("S2 Chrome offline commit, online upload failure and retry without duplicat
   await fetchUploaded(page);
   await expect(page.getByTestId("uploaded-log")).toHaveCount(1);
   await page.reload();
-  await page.getByRole("button", { name: "Fetch Logs", exact: true }).click();
+  await fetchIfNeeded(page);
   await expect(page.getByTestId("uploaded-log")).toHaveCount(1);
 });
 test("S2 interrupt upload when connection drops and recover", async ({
@@ -193,7 +196,7 @@ test("S2 submission failure preserves edits and retry locks final record", async
     .getByRole("button", { name: "Submit Final Record", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "Submit Anyway", exact: true })
+    .getByRole("button", { name: "Confirm submission", exact: true })
     .click();
   await expect(page.getByRole("alert")).toContainText("Could not save");
   await expect(page.getByLabel("Reference ID")).toHaveValue("REF-12345");
@@ -234,7 +237,7 @@ for (const width of [375, 768, 1440])
       ),
     ).toBe(true);
     await page
-      .getByRole("link", { name: "View Sync Queue", exact: true })
+      .getByRole("link", { name: "Sync queue", exact: true })
       .first()
       .click();
     await expect(
@@ -242,10 +245,11 @@ for (const width of [375, 768, 1440])
     ).toBeVisible();
     await fetchUploaded(page);
     await expect(page.getByTestId("uploaded-log")).toHaveCount(1);
-    await page.evaluate(() =>
-      localStorage.removeItem("fragile:v2:log-transfers"),
-    );
-    await page.getByRole("button", { name: "Fetch Logs", exact: true }).click();
+    await page.evaluate(() => {
+      localStorage.removeItem("fragile:v2:log-transfers");
+      window.dispatchEvent(new Event("fragile:transfers"));
+    });
+    await fetchIfNeeded(page);
     await expect(
       page.getByText("No uploaded logs.", { exact: true }),
     ).toBeVisible();
@@ -322,9 +326,7 @@ test("S2 invalid form updates preserve saved data and navigation warns about uns
     .getByRole("button", { name: "Save as Draft", exact: true })
     .click();
   await expect(page.getByRole("alert")).toContainText("Weight");
-  await page
-    .getByRole("link", { name: "View Sync Queue", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Sync queue", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText(
     "Discard unsaved changes",
   );
@@ -350,12 +352,10 @@ test("S2 malformed storage and unavailable IndexedDB show recoverable feedback",
   page,
 }) => {
   await page.goto("/sync");
-  await page.evaluate(() =>
-    localStorage.setItem("fragile:v2:log-transfers", "broken"),
-  );
-  await page
-    .getByRole("button", { name: "Refresh Local Queue", exact: true })
-    .click();
+  await page.evaluate(() => {
+    localStorage.setItem("fragile:v2:log-transfers", "broken");
+    window.dispatchEvent(new Event("fragile:transfers"));
+  });
   await expect(page.getByRole("alert")).toContainText("untouched");
   await page.evaluate(() =>
     localStorage.removeItem("fragile:v2:log-transfers"),
@@ -392,10 +392,8 @@ test("S2 batch upload excludes uncommitted logs and makes no API requests", asyn
     const rows = JSON.parse(localStorage.getItem("fragile:v2:log-transfers")!);
     rows.push({ ...rows[0], id: "second-log", note: "Second log" });
     localStorage.setItem("fragile:v2:log-transfers", JSON.stringify(rows));
+    window.dispatchEvent(new Event("fragile:transfers"));
   });
-  await page
-    .getByRole("button", { name: "Refresh Local Queue", exact: true })
-    .click();
   await expect(page.getByTestId("queue-row")).toHaveCount(2);
   const requests: string[] = [];
   page.on("request", (r) => {
@@ -431,7 +429,8 @@ test("S2 legacy draft becomes a final snapshot without changing the original", a
           capturedAt: now,
           timezone: "Asia/Bangkok",
           location: { latitude: 13.75, longitude: 100.5, accuracy: 5 },
-          photo: null,
+          photo:
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==",
           note: "Preserved cleanup",
         },
       ]),
@@ -463,12 +462,12 @@ test("S2 upload completion updates queue after navigating away and back", async 
   await queueLog(page);
   await page.getByRole("button", { name: "Upload Log", exact: true }).click();
   await expect(page.getByTestId("queue-row")).toContainText("Syncing");
-  await page.getByRole("link", { name: "My field logs", exact: true }).click();
-  await page.getByRole("link", { name: "Sync Queue", exact: true }).click();
+  await page.getByRole("link", { name: "My logs", exact: true }).click();
+  await page.getByRole("link", { name: "Sync queue", exact: true }).click();
   await expect(page.getByTestId("queue-row")).toHaveCount(0);
 });
 
-test("S2 failed upload completion write recovers through refresh and retry", async ({
+test("S2 failed upload completion write recovers automatically for retry", async ({
   page,
 }) => {
   await queueLog(page);
@@ -489,9 +488,6 @@ test("S2 failed upload completion write recovers through refresh and retry", asy
   await page.getByRole("button", { name: "Upload Log", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Could not save");
   await page.evaluate(() => (window as any).restore());
-  await page
-    .getByRole("button", { name: "Refresh Local Queue", exact: true })
-    .click({ timeout: 3000 });
   await expect(page.getByTestId("queue-row")).toContainText("Failed");
   await page.getByRole("button", { name: "Try Again", exact: true }).click();
   await expect(page.getByTestId("queue-row")).toHaveCount(0);

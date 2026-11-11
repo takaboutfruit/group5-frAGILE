@@ -2,7 +2,9 @@
 
 Source: `sprint2_test_cases.xlsm`, first worksheet. TC001–TC102 are assigned in worksheet order; worksheet row numbers are retained. Repeated spreadsheet cases are grouped into executable scenarios; **102 mapped requirements does not mean 102 separately executed tests**.
 
-The corrected staged flow is verified in `tests/log-flow.spec.ts`: offline capture → Save in My logs (queue empty) → Commit Logs on My logs → choose and confirm saved logs → queue → online upload (successful logs leave queue) → Uploaded Logs → explicit Fetch Logs → New Record → final submission (queue stays empty). Cancellation, failed commit writes, selection preservation, uncommitted-record rejection and offline fetch are covered.
+The corrected staged flow is verified in `tests/log-flow.spec.ts`: offline capture → Save in My logs (queue empty) → Commit Logs on My logs → choose and confirm saved logs → queue → online upload (successful logs leave queue) → Records → first Fetch Logs (retained on return) → New Record → final submission (queue stays empty). Cancellation, failed commit writes, selection preservation, uncommitted-record rejection and offline fetch are covered.
+
+Usability coverage in `tests/usability.spec.ts` verifies required commit fields, optional notes, readable primary buttons, one sticky navigation bar, retained fetch state, and visible feedback during form validation.
 
 Specs: `tests/sprint2.spec.ts` (browser journeys and responsive checks), `src/transfers.test.ts` (atomic commits, upload transitions and uploaded-only fetch), `src/records.test.ts` (record validation, final submission, persistence and failed writes). Sprint 1 regression coverage remains in `tests/demo.spec.ts` and `src/model.test.ts`.
 
