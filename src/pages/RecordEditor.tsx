@@ -8,7 +8,7 @@ import {
 } from "react-router-dom";
 import type { RecordData } from "../records";
 import {
-  fromDraft,
+  listLogRecords,
   listRecords,
   saveRecord,
   transition,
@@ -18,18 +18,19 @@ import {
   LEVELS,
   statusLabel,
 } from "../records";
-import { listDrafts, newDraft } from "../model";
+
 import { deleteReceipt, getReceipt, putReceipt } from "../receiptStore";
 import { Alert, Modal, Badge } from "../components/ui";
 import Signature from "../components/Signature";
 import { preparePhoto } from "../photo";
 import { date, message, shortId } from "../utils";
 function initialRecord(id?: string) {
-  if (!id) return fromDraft(newDraft());
-  const existing = listRecords().find((r) => r.id === id);
+  if (!id) throw Error("Choose an existing log from Fetch Pending Logs.");
+  const saved = listRecords().find((r) => r.id === id);
+  if (!saved && !navigator.onLine)
+    throw Error("Reconnect to fetch this log before creating its record.");
+  const existing = listLogRecords().find((r) => r.id === id);
   if (existing) return existing;
-  const draft = listDrafts().find((d) => d.id === id);
-  if (draft) return fromDraft(draft);
   throw Error("This record could not be found on this device.");
 }
 export default function RecordEditor() {
@@ -503,8 +504,8 @@ function RecordForm({ id }: { id?: string }) {
             <Link className="button primary" to="/sync">
               View Sync Queue
             </Link>
-            <Link className="button secondary" to="/records/new">
-              Create New Record
+            <Link className="button secondary" to="/logs/new">
+              Create log
             </Link>
           </div>
         )}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, Route, Routes, useLocation } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { FileText, UserPlus, Waves, WifiOff } from "lucide-react";
 import { Brand } from "./components/ui";
 import Welcome from "./pages/Welcome";
@@ -58,7 +58,10 @@ export default function App() {
       <Routes>
         <Route path="/sync" element={<SyncQueue />} />
         <Route path="/pending" element={<SyncQueue key="pending" pending />} />
-        <Route path="/records/new" element={<RecordEditor />} />
+        <Route
+          path="/records/new"
+          element={<Navigate to="/pending" replace />}
+        />
         <Route path="/records/:id" element={<RecordEditor />} />
         <Route path="/" element={<Welcome />} />
         <Route path="/register" element={<Register />} />

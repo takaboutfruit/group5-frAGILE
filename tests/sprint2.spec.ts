@@ -5,7 +5,15 @@ const png = Buffer.from(
   "base64",
 );
 async function openRecord(page: Page) {
-  await page.goto("/records/new");
+  await page.goto("/logs/new");
+  await page.getByRole("button", { name: "4 Note", exact: true }).click();
+  await page.getByLabel("Cleanup note").fill("Sprint 2 source log");
+  await page.getByRole("button", { name: "Save draft", exact: true }).click();
+  await page.getByRole("link", { name: "Sync Queue", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Fetch Pending Logs", exact: true })
+    .click();
+  await page.getByRole("link", { name: "New Record", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Complete your record." }),
   ).toBeVisible();
@@ -228,6 +236,12 @@ for (const width of [375, 768, 1440])
     await page
       .getByRole("link", { name: "View Sync Queue", exact: true })
       .first()
+      .click();
+    await expect(page.getByTestId("queue-row")).toHaveCount(1);
+    // Remove the source fixture to exercise the genuine empty queue, too.
+    await page.evaluate(() => localStorage.removeItem("fragile:v1:drafts"));
+    await page
+      .getByRole("button", { name: "Refresh Local Queue", exact: true })
       .click();
     await expect(
       page.getByText("Your sync queue is empty.", { exact: true }),
@@ -469,8 +483,12 @@ test("S2 legacy draft becomes a final snapshot without changing the original", a
   });
   await page.reload();
   await page
-    .getByRole("link", { name: "Complete final record", exact: true })
+    .getByRole("link", { name: "View in Sync Queue", exact: true })
     .click();
+  await page
+    .getByRole("link", { name: "Fetch Pending Logs", exact: true })
+    .click();
+  await page.getByRole("link", { name: "New Record", exact: true }).click();
   await expect(
     page.getByText("Preserved cleanup", { exact: true }),
   ).toBeVisible();

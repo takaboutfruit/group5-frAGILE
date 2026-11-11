@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CloudUpload, RefreshCw, FileText } from "lucide-react";
 import type { RecordData } from "../records";
-import { listRecords, saveRecord, statusLabel, transition } from "../records";
+import {
+  listRecords,
+  listLogRecords,
+  saveRecord,
+  statusLabel,
+  transition,
+} from "../records";
 import { useOnline } from "../connectivity";
 import { Alert, Badge } from "../components/ui";
 import { date, message, shortId } from "../utils";
@@ -18,7 +24,7 @@ export default function SyncQueue({ pending = false }: { pending?: boolean }) {
   const interrupted = useRef(false);
   function load() {
     try {
-      let records = listRecords();
+      let records = listLogRecords();
       for (const r of records) {
         if (r.status === "SYNCING" && !running.has(r.id)) {
           saveRecord({
@@ -28,7 +34,7 @@ export default function SyncQueue({ pending = false }: { pending?: boolean }) {
           });
         }
       }
-      records = listRecords();
+      records = listLogRecords();
       setRows(records);
       setError("");
     } catch (e) {
@@ -73,7 +79,7 @@ export default function SyncQueue({ pending = false }: { pending?: boolean }) {
     setBusy(true);
     try {
       saveRecord(transition(r, "SYNCING"));
-      setRows(listRecords());
+      setRows(listLogRecords());
       await new Promise((resolve) => setTimeout(resolve, 1500));
       const current = listRecords().find((v) => v.id === r.id)!;
       if (
@@ -97,7 +103,7 @@ export default function SyncQueue({ pending = false }: { pending?: boolean }) {
           "Log uploaded successfully! Local simulation only — no data left this device.",
         );
       }
-      setRows(listRecords());
+      setRows(listLogRecords());
     } catch (e) {
       setError(message(e));
     } finally {
@@ -107,11 +113,20 @@ export default function SyncQueue({ pending = false }: { pending?: boolean }) {
   }
   const waiting = rows.filter(
     (r) =>
+      r.status === "DRAFT" ||
       r.status === "COMMITTED" ||
       r.status === "SYNC_FAILED" ||
       r.status === "SYNCING",
   );
-  const visible = pending ? waiting : rows;
+  const visible = pending ? (online ? waiting : []) : rows;
+  const recordIds = new Set(listRecordIds());
+  function listRecordIds() {
+    try {
+      return listRecords().map((r) => r.id);
+    } catch {
+      return [];
+    }
+  }
   const picked = rows.find((r) => r.id === selected);
   return (
     <main className="narrow page queue-page">
@@ -122,7 +137,7 @@ export default function SyncQueue({ pending = false }: { pending?: boolean }) {
         locally.
       </p>
       <div className="record-links">
-        <Link to="/records/new">Create New Record</Link>
+        <Link to="/logs/new">Create log</Link>
         <Link to={pending ? "/sync" : "/pending"}>
           {pending ? "View Sync Queue" : "Fetch Pending Logs"}
         </Link>
@@ -152,9 +167,15 @@ export default function SyncQueue({ pending = false }: { pending?: boolean }) {
           Failed
         </div>
       </div>
+      {pending && !online && (
+        <Alert>
+          Reconnect to fetch pending logs. Your logs remain saved on this
+          device.
+        </Alert>
+      )}
       {error && <Alert>{error}</Alert>}
       {notice && <Alert success>{notice}</Alert>}
-      {!visible.length && (
+      {!visible.length && (!pending || online) && (
         <section className="empty-state">
           <CloudUpload size={50} />
           <h2>{pending ? "No pending logs." : "Your sync queue is empty."}</h2>
@@ -175,15 +196,27 @@ export default function SyncQueue({ pending = false }: { pending?: boolean }) {
               <strong>
                 <FileText size={18} /> Log #{shortId(r.id)}
               </strong>
-              <Badge>{statusLabel[r.status]}</Badge>
+              <Badge>
+                {r.status === "DRAFT"
+                  ? "Pending Record"
+                  : statusLabel[r.status]}
+              </Badge>
             </div>
             <p>{r.reference || r.note || "Cleanup record"}</p>
             <p className="small muted">Updated: {date(r.updatedAt)}</p>
             {r.syncError && <p className="queue-error">{r.syncError}</p>}
             <div className="record-actions">
-              <Link to={`/records/${r.id}`}>
-                {r.status === "DRAFT" ? "Complete record" : "View record"}
-              </Link>
+              {r.status === "DRAFT" ? (
+                pending ? (
+                  <Link to={`/records/${r.id}`}>
+                    {recordIds.has(r.id) ? "Continue Record" : "New Record"}
+                  </Link>
+                ) : (
+                  <Link to="/pending">View pending log</Link>
+                )
+              ) : (
+                <Link to={`/records/${r.id}`}>View record</Link>
+              )}
               {["COMMITTED", "SYNC_FAILED"].includes(r.status) && (
                 <label className="queue-select">
                   <input
@@ -213,7 +246,7 @@ export default function SyncQueue({ pending = false }: { pending?: boolean }) {
           <RefreshCw size={16} /> Refresh Local Queue
         </button>
       </div>
-      {waiting.length > 0 && (
+      {(!pending || online) && waiting.some((r) => r.status !== "DRAFT") && (
         <section className="record-section">
           <h2>
             <CloudUpload size={22} /> Upload Log

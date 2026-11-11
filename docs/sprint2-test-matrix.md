@@ -2,6 +2,8 @@
 
 Source: `sprint2_test_cases.xlsm`, first worksheet. TC001–TC102 are assigned in worksheet order; worksheet row numbers are retained. Repeated spreadsheet cases are grouped into executable scenarios; **102 mapped requirements does not mean 102 separately executed tests**.
 
+The corrected shared-log flow is verified in `tests/log-flow.spec.ts`: offline capture → My logs → Sync Queue → reconnect → Fetch Pending Logs → linked New Record, including repeated continuation and no blank standalone record creation.
+
 Specs: `tests/sprint2.spec.ts` (browser journeys and responsive checks), `src/records.test.ts` (validation, state transitions, persistence and failed writes). Sprint 1 regression coverage remains in `tests/demo.spec.ts` and `src/model.test.ts`.
 
 The revised guide supersedes generic API/backend tasks: all operations use local storage with an asynchronous 1.5-second upload simulation. Native offline mode blocks sync but permits local commit. Material options are bundled, so no remote list request can fail; bundled options fulfill the default-list fallback. Receipt validation is JPEG/PNG and strictly below 3 MiB. References accept letters, numbers and hyphens, matching the design example. Optional cleanup-photo confirmation is separate from receipt evidence.

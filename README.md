@@ -4,7 +4,7 @@ A responsive ocean-cleanup field log built from the mockups in `frAGILE_frontend
 
 ## Sprint 2
 
-Sync Queue, local commit, simulated upload/retry, pending records, receipt upload/retake, reference and weight editing, signature capture/clear, material/contamination selection, and locally locked final records are implemented. Start from **Sync Queue**, or save a Sprint 1 draft and choose **Complete final record**. Uploads require the browser to be online but never send data to a server. Offline local work is supported after initial load.
+Sync Queue, local commit, simulated upload/retry, pending records, receipt upload/retake, reference and weight editing, signature capture/clear, material/contamination selection, and locally locked final records are implemented. Create a log offline, save it in **My logs**, and open **Sync Queue** to see the same log automatically. Once online, choose **Fetch Pending Logs**, then **New Record** for an existing log. Saved GPS/time/photo/note carry over, and **Continue Record** resumes saved record details without duplicates. Uploads require the browser to be online but never send data to a server. Offline local work is supported after initial load.
 
 See [the demo and Chrome Network checklist](docs/sprint2-demo.md) and [all 102 mapped acceptance cases](docs/sprint2-test-matrix.md).
 

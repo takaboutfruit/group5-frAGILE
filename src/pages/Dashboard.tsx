@@ -13,6 +13,8 @@ import {
   Trash2,
   ShieldCheck,
 } from "lucide-react";
+import { listLogRecords, statusLabel } from "../records";
+import type { Status } from "../records";
 import type { Draft } from "../model";
 import { listDrafts, completion, deleteDraft } from "../model";
 import { Alert, Modal, Badge } from "../components/ui";
@@ -20,6 +22,7 @@ import { message, date, shortId } from "../utils";
 export default function Dashboard() {
   const location = useLocation();
   const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [error, setError] = useState("");
   const [target, setTarget] = useState<Draft | null>(null);
   const [deleteError, setDeleteError] = useState("");
@@ -29,6 +32,9 @@ export default function Dashboard() {
   function load() {
     try {
       setDrafts(listDrafts());
+      setStatuses(
+        Object.fromEntries(listLogRecords().map((r) => [r.id, r.status])),
+      );
       setError("");
     } catch (e) {
       setError(message(e));
@@ -163,7 +169,7 @@ export default function Dashboard() {
                     <span>No photo yet</span>
                   </>
                 )}
-                <Badge>Draft</Badge>
+                <Badge>{statusLabel[statuses[d.id] || "DRAFT"]}</Badge>
               </div>
               <div className="draft-content">
                 <div className="draft-card-title">
@@ -190,8 +196,8 @@ export default function Dashboard() {
                 <div className="progress-track">
                   <span style={{ width: `${(completion(d) / 4) * 100}%` }} />
                 </div>
-                <Link to={`/records/${d.id}`} className="text-button">
-                  Complete final record
+                <Link to="/sync" className="text-button">
+                  View in Sync Queue
                 </Link>
                 <div className="draft-card-footer">
                   <Link to={`/logs/${d.id}`} className="text-button">

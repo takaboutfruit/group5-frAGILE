@@ -3,6 +3,7 @@ import type { RecordData } from "./records";
 import { newDraft } from "./model";
 import {
   fromDraft,
+  listLogRecords,
   validateRecord,
   saveRecord,
   listRecords,
@@ -158,4 +159,61 @@ it("rejects malformed persisted cleanup fields without overwriting storage", () 
   };
   s.setItem("fragile:v2:records", JSON.stringify([r]));
   expect(() => listRecords(s)).toThrow("untouched");
+});
+
+describe("shared My logs and sync queue", () => {
+  it("projects every saved field log into the queue without writing another copy", () => {
+    const s = memory();
+    const d = { ...newDraft(), note: "Offline cleanup" };
+    s.setItem("fragile:v1:drafts", JSON.stringify([d]));
+    expect(listLogRecords(s)).toEqual([fromDraft(d)]);
+    expect(s.getItem("fragile:v2:records")).toBeNull();
+  });
+  it("carries source edits into unfinished records while preserving receipt and form fields", () => {
+    const s = memory();
+    const d = { ...newDraft(), note: "First" };
+    s.setItem("fragile:v1:drafts", JSON.stringify([d]));
+    saveRecord(
+      { ...fromDraft(d), reference: "REF-123", receiptImageId: "receipt" },
+      s,
+    );
+    s.setItem(
+      "fragile:v1:drafts",
+      JSON.stringify([
+        {
+          ...d,
+          note: "Updated",
+          location: { latitude: 13, longitude: 100, accuracy: 5 },
+        },
+      ]),
+    );
+    const rows = listLogRecords(s);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: d.id,
+      note: "Updated",
+      reference: "REF-123",
+      receiptImageId: "receipt",
+      location: { latitude: 13, longitude: 100, accuracy: 5 },
+    });
+  });
+  it("deduplicates linked final records and preserves their locked details", () => {
+    const s = memory();
+    const r = valid();
+    s.setItem(
+      "fragile:v1:drafts",
+      JSON.stringify([{ ...r, note: "Later source edit" }]),
+    );
+    saveRecord(transition(r, "COMMITTED"), s);
+    expect(listLogRecords(s)).toHaveLength(1);
+    expect(listLogRecords(s)[0].note).toBe(r.note);
+  });
+});
+it("removes an unfinished linked record from the queue when its source log is deleted", () => {
+  const s = memory();
+  const d = newDraft();
+  s.setItem("fragile:v1:drafts", JSON.stringify([d]));
+  saveRecord({ ...fromDraft(d), reference: "REF-SAVED" }, s);
+  s.setItem("fragile:v1:drafts", "[]");
+  expect(listLogRecords(s)).toEqual([]);
 });

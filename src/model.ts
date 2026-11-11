@@ -75,7 +75,7 @@ export function isDraft(v: unknown): v is Draft {
 function read<T>(
   key: string,
   check: (v: unknown) => v is T,
-  storage: Storage,
+  storage: Pick<Storage, "getItem">,
 ): T[] {
   try {
     const raw = storage.getItem(key);
@@ -100,7 +100,7 @@ function write(key: string, value: unknown, storage: Storage) {
 }
 // Drafts belong to this browser in the account-free prototype. Include legacy
 // account-associated drafts without rewriting or removing their saved data.
-export function listDrafts(storage = localStorage) {
+export function listDrafts(storage: Pick<Storage, "getItem"> = localStorage) {
   return read(DRAFTS, isDraft, storage).sort((a, b) =>
     b.updatedAt.localeCompare(a.updatedAt),
   );
