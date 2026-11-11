@@ -9,9 +9,40 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import { register } from "../model";
-import { Alert, Modal } from "../components/ui";
+import { Alert, Modal, FieldError } from "../components/ui";
 import { message } from "../utils";
 export default function Register() {
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  function validate(data: FormData) {
+    const errors: Record<string, string> = {};
+    if (!String(data.get("name") || "").trim())
+      errors.name = "Enter your full name.";
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(data.get("email") || "").trim())
+    )
+      errors.email = "Enter a valid email address.";
+    if (String(data.get("password") || "").length < 8)
+      errors.password = "Use at least 8 characters.";
+    if (!data.get("confirm") || data.get("confirm") !== data.get("password"))
+      errors.confirm = "Your passwords do not match.";
+    if (!data.get("terms")) errors.terms = "Accept the demo terms to continue.";
+    return errors;
+  }
+  function checkField(form: HTMLFormElement, name: string, force = false) {
+    setFieldErrors((prev) => {
+      const errors = validate(new FormData(form));
+      const next = { ...prev };
+      for (const key of [
+        name,
+        ...(name === "password" && prev.confirm ? ["confirm"] : []),
+      ]) {
+        if (!force && !prev[key]) continue;
+        if (errors[key]) next[key] = errors[key];
+        else delete next[key];
+      }
+      return next;
+    });
+  }
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState(false);
@@ -21,8 +52,10 @@ export default function Register() {
     setError("");
     const data = new FormData(e.currentTarget);
     const password = String(data.get("password"));
-    if (password !== data.get("confirm")) {
-      setError("Your passwords do not match.");
+    const errors = validate(data);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length) {
+      setError("Check the highlighted fields before creating your account.");
       return;
     }
     setBusy(true);
@@ -35,6 +68,8 @@ export default function Register() {
       setCreated(true);
     } catch (e) {
       setError(message(e));
+      if (message(e).includes("already registered"))
+        setFieldErrors({ email: message(e) });
     } finally {
       setBusy(false);
     }
@@ -93,21 +128,43 @@ export default function Register() {
               account.
             </p>
             {error && <Alert>{error}</Alert>}
-            <form onSubmit={submit}>
+            <form
+              noValidate
+              onSubmit={submit}
+              onBlur={(e) => {
+                const input = e.target;
+                if (input instanceof HTMLInputElement && input.name)
+                  checkField(e.currentTarget, input.name, true);
+              }}
+              onChange={(e) => {
+                const input = e.target;
+                if (input instanceof HTMLInputElement && input.name)
+                  checkField(e.currentTarget, input.name);
+              }}
+            >
               <label>
                 Full name
                 <input
                   name="name"
+                  aria-invalid={!!fieldErrors.name}
+                  aria-describedby={
+                    fieldErrors.name ? "register-name-error" : undefined
+                  }
                   placeholder="e.g. Maya Chen"
                   autoComplete="name"
                   required
                   maxLength={100}
                 />
               </label>
+              <FieldError id="register-name-error" message={fieldErrors.name} />
               <label>
                 Email address
                 <input
                   name="email"
+                  aria-invalid={!!fieldErrors.email}
+                  aria-describedby={
+                    fieldErrors.email ? "register-email-error" : undefined
+                  }
                   type="email"
                   placeholder="you@example.com"
                   autoComplete="email"
@@ -115,12 +172,21 @@ export default function Register() {
                   maxLength={254}
                 />
               </label>
+              <FieldError
+                id="register-email-error"
+                message={fieldErrors.email}
+              />
               <label>
                 Password
                 <input
                   name="password"
+                  aria-invalid={!!fieldErrors.password}
+                  aria-describedby={
+                    fieldErrors.password
+                      ? "register-password-error"
+                      : "password-hint"
+                  }
                   aria-label="Password"
-                  aria-describedby="password-hint"
                   type="password"
                   placeholder="At least 8 characters"
                   minLength={8}
@@ -131,18 +197,38 @@ export default function Register() {
                   Use a demo password, not one you use elsewhere.
                 </small>
               </label>
+              <FieldError
+                id="register-password-error"
+                message={fieldErrors.password}
+              />
               <label>
                 Confirm password
                 <input
                   name="confirm"
+                  aria-invalid={!!fieldErrors.confirm}
+                  aria-describedby={
+                    fieldErrors.confirm ? "register-confirm-error" : undefined
+                  }
                   type="password"
                   placeholder="Re-enter your password"
                   autoComplete="new-password"
                   required
                 />
               </label>
+              <FieldError
+                id="register-confirm-error"
+                message={fieldErrors.confirm}
+              />
               <label className="checkbox-label">
-                <input name="terms" type="checkbox" required />
+                <input
+                  name="terms"
+                  aria-invalid={!!fieldErrors.terms}
+                  aria-describedby={
+                    fieldErrors.terms ? "register-terms-error" : undefined
+                  }
+                  type="checkbox"
+                  required
+                />
                 <span>
                   I agree to the{" "}
                   <button
@@ -155,6 +241,10 @@ export default function Register() {
                   .
                 </span>
               </label>
+              <FieldError
+                id="register-terms-error"
+                message={fieldErrors.terms}
+              />
               <button className="button primary full" disabled={busy}>
                 {busy ? <LoaderCircle className="spin" size={18} /> : null}
                 {busy ? "Please wait…" : "Create account"}

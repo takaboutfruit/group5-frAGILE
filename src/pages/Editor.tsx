@@ -23,7 +23,7 @@ import {
   noteLength,
   saveDraft,
 } from "../model";
-import { Alert, Badge, Modal } from "../components/ui";
+import { Alert, Badge, Modal, FieldError } from "../components/ui";
 import { preparePhoto } from "../photo";
 import { message, date, shortId } from "../utils";
 export function EditorRoute() {
@@ -59,6 +59,7 @@ export default function Editor({ id }: { id?: string }) {
   const [error, setError] = useState("");
   const [gpsBusy, setGpsBusy] = useState(false);
   const [gpsError, setGpsError] = useState("");
+  const [photoError, setPhotoError] = useState("");
   const [photoBusy, setPhotoBusy] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -134,10 +135,14 @@ export default function Editor({ id }: { id?: string }) {
     setPhotoBusy(true);
     setError("");
     try {
+      setPhotoError("");
       const value = await preparePhoto(file);
       if (active.current) setPreview(value);
     } catch (e) {
-      if (active.current) setError(message(e));
+      if (active.current) {
+        setError(message(e));
+        setPhotoError(message(e));
+      }
     } finally {
       if (active.current) setPhotoBusy(false);
     }
@@ -309,13 +314,19 @@ export default function Editor({ id }: { id?: string }) {
                   </button>
                 </div>
               </div>
-              {gpsError && <Alert>{gpsError}</Alert>}
+              {gpsError && (
+                <>
+                  <Alert>{gpsError}</Alert>
+                  <FieldError id="cleanup-location-error" message={gpsError} />
+                </>
+              )}
               {draft.location && (
                 <p className="inline-success">
                   <CheckCircle2 size={16} /> Location captured. Save your draft
                   to keep it.
                 </p>
               )}
+              <FieldError id="cleanup-photo-error" message={photoError} />
               <div className="field-tip">
                 <span>FIELD TIP</span>For a more accurate reading, move to an
                 open area with a clear view of the sky.
@@ -482,6 +493,7 @@ export default function Editor({ id }: { id?: string }) {
                   )}
                 </div>
               )}
+              <FieldError id="cleanup-photo-error" message={photoError} />
               <div className="field-tip">
                 <span>FIELD TIP</span>Keep the recovered waste in view. Photos
                 are resized for device storage and are never uploaded in this
@@ -502,6 +514,10 @@ export default function Editor({ id }: { id?: string }) {
               <label className="note-label">
                 Cleanup note <span>Optional</span>
                 <textarea
+                  aria-invalid={!validNote}
+                  aria-describedby={
+                    !validNote ? "cleanup-note-error" : undefined
+                  }
                   value={draft.note}
                   maxLength={500}
                   rows={8}
@@ -515,6 +531,14 @@ export default function Editor({ id }: { id?: string }) {
                 </span>
                 <span>{noteLength(draft.note)}/500</span>
               </div>
+              <FieldError
+                id="cleanup-note-error"
+                message={
+                  !validNote
+                    ? "Keep your note to 500 characters or fewer."
+                    : undefined
+                }
+              />
               {!validNote && (
                 <Alert>Shorten this note to 500 characters or fewer.</Alert>
               )}

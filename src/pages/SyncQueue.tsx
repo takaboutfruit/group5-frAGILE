@@ -6,12 +6,13 @@ import {
   updateTransfers,
   transferLabel,
 } from "../transfers";
-import { Alert, Badge } from "../components/ui";
+import { Alert, Badge, Modal } from "../components/ui";
 import { date, message, shortId } from "../utils";
 const running = new Set<string>();
 export default function SyncQueue() {
   const [rows, setRows] = useState<LogTransfer[]>([]);
   const [error, setError] = useState("");
+  const [details, setDetails] = useState<LogTransfer | null>(null);
   const [notice, setNotice] = useState("");
   const [outcome, setOutcome] = useState("success");
   const [busy, setBusy] = useState(false);
@@ -160,6 +161,12 @@ export default function SyncQueue() {
             <p>{t.note || "Cleanup log"}</p>
             <p className="small muted">Committed: {date(t.committedAt)}</p>
             {t.syncError && <p className="queue-error">{t.syncError}</p>}
+            <button
+              className="button secondary queue-details-button"
+              onClick={() => setDetails(t)}
+            >
+              View details
+            </button>
           </article>
         ))}
       </div>
@@ -194,6 +201,48 @@ export default function SyncQueue() {
                 : "Upload Log"}
           </button>
         </section>
+      )}
+      {details && (
+        <Modal
+          title={`Log #${shortId(details.id)} details`}
+          onClose={() => setDetails(null)}
+        >
+          <Badge>
+            {
+              transferLabel[
+                rows.find((t) => t.id === details.id)?.status || details.status
+              ]
+            }
+          </Badge>
+          <dl className="log-detail-list">
+            <dt>Captured</dt>
+            <dd>{date(details.capturedAt)}</dd>
+            <dt>Location</dt>
+            <dd>
+              {details.location
+                ? `${details.location.latitude.toFixed(4)}°, ${details.location.longitude.toFixed(4)}° (±${Math.round(details.location.accuracy)} m)`
+                : "Not recorded"}
+            </dd>
+            <dt>Cleanup note</dt>
+            <dd>{details.note || "No note added"}</dd>
+            <dt>Committed</dt>
+            <dd>{date(details.committedAt)}</dd>
+          </dl>
+          {details.photo && (
+            <img
+              className="receipt-image"
+              src={details.photo}
+              alt="Committed cleanup photo"
+            />
+          )}
+          <p className="small muted">Committed logs are read-only.</p>
+          <button
+            className="button secondary full"
+            onClick={() => setDetails(null)}
+          >
+            Close details
+          </button>
+        </Modal>
       )}
       <aside className="field-tip">
         <span>DEMO OPERATIONAL BOUNDARIES</span>Load before switching Chrome

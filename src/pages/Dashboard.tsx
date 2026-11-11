@@ -98,7 +98,10 @@ export default function Dashboard() {
             logs when they’re ready to upload.
           </p>
         </div>
-        <div className="record-actions">
+        <div className="dashboard-actions">
+          <Link className="button primary" to="/logs/new">
+            <Plus size={18} /> Create log
+          </Link>
           <button
             className="button secondary"
             disabled={!drafts.some((d) => !statuses[d.id])}
@@ -110,9 +113,6 @@ export default function Dashboard() {
           >
             Commit Logs
           </button>
-          <Link className="button primary" to="/logs/new">
-            <Plus size={18} /> Create log
-          </Link>
         </div>
       </div>
       {notice && (

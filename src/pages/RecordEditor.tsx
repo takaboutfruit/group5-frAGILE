@@ -19,7 +19,7 @@ import {
 } from "../records";
 
 import { deleteReceipt, getReceipt, putReceipt } from "../receiptStore";
-import { Alert, Modal, Badge } from "../components/ui";
+import { Alert, Modal, Badge, FieldError } from "../components/ui";
 import Signature from "../components/Signature";
 import { preparePhoto } from "../photo";
 import { date, message, shortId } from "../utils";
@@ -46,6 +46,9 @@ function RecordForm({ id }: { id?: string }) {
   const [notice, setNotice] = useState(
     location.state?.saved ? "Draft saved on this device." : "",
   );
+  const [attempted, setAttempted] = useState(false);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [receiptError, setReceiptError] = useState("");
   const [busy, setBusy] = useState(false);
   const [receiptUrl, setReceiptUrl] = useState("");
   const [preview, setPreview] = useState<Blob | null>(null);
@@ -119,6 +122,11 @@ function RecordForm({ id }: { id?: string }) {
       </main>
     );
   const r = record;
+  const validation = validateRecord(r);
+  const fieldErrors = Object.fromEntries(
+    Object.entries(validation).filter(([key]) => attempted || touched[key]),
+  );
+  const touch = (key: string) => setTouched((v) => ({ ...v, [key]: true }));
   function update(patch: Partial<RecordData>) {
     if (locked) return;
     setRecord((v) => (v ? { ...v, ...patch } : v));
@@ -130,13 +138,17 @@ function RecordForm({ id }: { id?: string }) {
     const request = ++fileRequest.current;
     setBusy(true);
     setError("");
+    setReceiptError("");
     try {
       validateReceipt(file);
       const data = await preparePhoto(file);
       const blob = await (await fetch(data)).blob();
       if (request === fileRequest.current) setPreview(blob);
     } catch (e) {
-      if (request === fileRequest.current) setError(message(e));
+      if (request === fileRequest.current) {
+        setError(message(e));
+        setReceiptError(message(e));
+      }
     } finally {
       if (request === fileRequest.current) setBusy(false);
     }
@@ -159,6 +171,24 @@ function RecordForm({ id }: { id?: string }) {
     }
   }
   async function persist(final = false) {
+    setTouched((v) => ({
+      ...v,
+      ...Object.fromEntries(
+        [
+          "reference",
+          "weightKg",
+          "materialType",
+          "contaminationLevel",
+          "materialDescription",
+        ]
+          .filter(
+            (key) =>
+              r[key as keyof RecordData] !== "" &&
+              r[key as keyof RecordData] !== null,
+          )
+          .map((key) => [key, true]),
+      ),
+    }));
     setError("");
     setNotice("");
     setBusy(true);
@@ -200,6 +230,7 @@ function RecordForm({ id }: { id?: string }) {
     }
   }
   function submit() {
+    setAttempted(true);
     const errors = validateRecord(r);
     if (Object.keys(errors).length) {
       setError(
@@ -216,6 +247,9 @@ function RecordForm({ id }: { id?: string }) {
     )
       void deleteReceipt(record.receiptImageId).catch(() => {});
     stagedImages.current.clear();
+    setAttempted(false);
+    setTouched({});
+    setReceiptError("");
     setRecord(baseline);
     setPreview(null);
     setError("");
@@ -243,11 +277,7 @@ function RecordForm({ id }: { id?: string }) {
         </Alert>
       )}
       {error && !preview && <Alert>{error}</Alert>}
-      {notice && (
-        <Alert success inline>
-          {notice}
-        </Alert>
-      )}
+      {notice && <Alert success>{notice}</Alert>}
       <fieldset disabled={locked || busy} className="record-fields">
         <section className="record-section">
           <h2>Reference & weight</h2>
@@ -255,12 +285,21 @@ function RecordForm({ id }: { id?: string }) {
             Reference ID
             <input
               id="record-reference"
+              aria-invalid={!!fieldErrors.reference}
+              aria-describedby={
+                fieldErrors.reference ? "record-reference-error" : undefined
+              }
+              onBlur={() => touch("reference")}
               value={r.reference}
               onChange={(e) => update({ reference: e.target.value })}
               placeholder="REF-12345"
               maxLength={100}
             />
           </label>
+          <FieldError
+            id="record-reference-error"
+            message={fieldErrors.reference}
+          />
           <p className="small muted">Letters, numbers and hyphens. Required.</p>
           <label>
             Weight (kg)
@@ -268,6 +307,11 @@ function RecordForm({ id }: { id?: string }) {
               type="number"
               step="any"
               id="record-weight"
+              aria-invalid={!!fieldErrors.weightKg}
+              aria-describedby={
+                fieldErrors.weightKg ? "record-weight-error" : undefined
+              }
+              onBlur={() => touch("weightKg")}
               value={r.weightKg ?? ""}
               onChange={(e) =>
                 update({
@@ -277,6 +321,7 @@ function RecordForm({ id }: { id?: string }) {
               }
             />
           </label>
+          <FieldError id="record-weight-error" message={fieldErrors.weightKg} />
         </section>
         <section className="record-section">
           <h2>Material & contamination</h2>
@@ -284,6 +329,11 @@ function RecordForm({ id }: { id?: string }) {
             Material type
             <select
               id="record-material"
+              aria-invalid={!!fieldErrors.materialType}
+              aria-describedby={
+                fieldErrors.materialType ? "record-material-error" : undefined
+              }
+              onBlur={() => touch("materialType")}
               value={r.materialType}
               onChange={(e) => update({ materialType: e.target.value })}
             >
@@ -293,17 +343,35 @@ function RecordForm({ id }: { id?: string }) {
               ))}
             </select>
           </label>
+          <FieldError
+            id="record-material-error"
+            message={fieldErrors.materialType}
+          />
           {r.materialType === "Other" && (
-            <label>
-              Describe material
-              <textarea
-                value={r.materialDescription}
-                maxLength={500}
-                onChange={(e) =>
-                  update({ materialDescription: e.target.value })
-                }
+            <>
+              <label>
+                Describe material
+                <textarea
+                  id="record-material-description"
+                  aria-invalid={!!fieldErrors.materialDescription}
+                  aria-describedby={
+                    fieldErrors.materialDescription
+                      ? "record-material-description-error"
+                      : undefined
+                  }
+                  onBlur={() => touch("materialDescription")}
+                  value={r.materialDescription}
+                  maxLength={500}
+                  onChange={(e) =>
+                    update({ materialDescription: e.target.value })
+                  }
+                />
+              </label>
+              <FieldError
+                id="record-material-description-error"
+                message={fieldErrors.materialDescription}
               />
-            </label>
+            </>
           )}
           <p className="small muted">
             Default material options are bundled on this device and available
@@ -313,6 +381,13 @@ function RecordForm({ id }: { id?: string }) {
             Contamination level
             <select
               id="record-contamination"
+              aria-invalid={!!fieldErrors.contaminationLevel}
+              aria-describedby={
+                fieldErrors.contaminationLevel
+                  ? "record-contamination-error"
+                  : undefined
+              }
+              onBlur={() => touch("contaminationLevel")}
               value={r.contaminationLevel}
               onChange={(e) => update({ contaminationLevel: e.target.value })}
             >
@@ -322,6 +397,10 @@ function RecordForm({ id }: { id?: string }) {
               ))}
             </select>
           </label>
+          <FieldError
+            id="record-contamination-error"
+            message={fieldErrors.contaminationLevel}
+          />
         </section>
         <section className="record-section">
           <h2 id="record-receipt">Receipt</h2>
@@ -340,6 +419,10 @@ function RecordForm({ id }: { id?: string }) {
             <input
               className="sr-only"
               type="file"
+              aria-invalid={!!receiptError}
+              aria-describedby={
+                receiptError ? "record-receipt-error" : undefined
+              }
               aria-label={r.receiptImageId ? "Retake receipt" : "Receipt image"}
               accept="image/jpeg,image/png"
               capture="environment"
@@ -349,6 +432,7 @@ function RecordForm({ id }: { id?: string }) {
               }}
             />
           </label>
+          <FieldError id="record-receipt-error" message={receiptError} />
           {r.receiptImageId && (
             <button
               className="text-button delete-button"
@@ -361,9 +445,14 @@ function RecordForm({ id }: { id?: string }) {
         <section className="record-section">
           <h2 id="record-signature">Signature</h2>
           <Signature
+            error={fieldErrors.signatureDataUrl}
             value={r.signatureDataUrl}
             disabled={locked || busy}
             onChange={(signatureDataUrl) => update({ signatureDataUrl })}
+          />
+          <FieldError
+            id="record-signature-error"
+            message={fieldErrors.signatureDataUrl}
           />
         </section>
       </fieldset>

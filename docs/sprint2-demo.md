@@ -50,3 +50,10 @@ Browser tests use native offline emulation, real image decoding and IndexedDB pe
 - One sticky header provides My logs → Sync queue → Records. Per-page navigation strips and the manual queue refresh button are removed. New page navigation starts at the top; unsaved-change confirmations remain in place.
 - My logs is the editable field-log gallery. Sync queue is a compact transfer-status list, with automatic updates and recovery. Records shows uploaded logs and record progress.
 - Primary buttons use white text on dark teal. Success/error notifications appear in a fixed notification stack; errors inside dialogs stay beside the confirmation actions.
+
+## Details and field feedback
+
+- Sync queue entries have a View details button showing captured time, GPS, note, photo and commit time in a read-only dialog. Viewing details does not change or commit data.
+- Record validation displays red messages directly below reference, weight, material, contamination, receipt and signature controls. Account and field-log inputs also show local guidance when invalid. Correcting a field clears its message.
+- Draft-save feedback uses the bottom notification stack, including in the final-record form. The header shows only Online or Offline.
+- My logs places Create log before Commit Logs with matching action sizes. Records uses spaced cards with a source preview, captured date/location, a labeled note preview and a separate action footer.

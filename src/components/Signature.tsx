@@ -4,10 +4,12 @@ export default function Signature({
   value,
   onChange,
   disabled = false,
+  error,
 }: {
   value: string;
   onChange: (v: string) => void;
   disabled?: boolean;
+  error?: string;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
@@ -68,6 +70,8 @@ export default function Signature({
         width={640}
         height={200}
         aria-label="Draw signature"
+        aria-invalid={!!error}
+        aria-describedby={error ? "record-signature-error" : undefined}
         role="img"
         onPointerDown={start}
         onPointerMove={move}

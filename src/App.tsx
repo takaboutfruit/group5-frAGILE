@@ -34,7 +34,7 @@ export default function App() {
             className={`workflow-status ${online ? "connected" : "disconnected"}`}
             role="status"
           >
-            {online ? "Online · Saved on device" : "Offline · Saved on device"}
+            {online ? "Online" : "Offline"}
           </div>
           <nav aria-label="Main navigation">
             {[
