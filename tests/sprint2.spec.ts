@@ -4,15 +4,32 @@ const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==",
   "base64",
 );
-async function openRecord(page: Page) {
+async function commitSaved(page: Page) {
+  await page.getByRole("button", { name: "Commit Logs", exact: true }).click();
+  await page.getByRole("dialog").getByRole("checkbox").first().check();
+  await page
+    .getByRole("button", { name: "Confirm Commit", exact: true })
+    .click();
+}
+async function queueLog(page: Page) {
   await page.goto("/logs/new");
   await page.getByRole("button", { name: "4 Note", exact: true }).click();
   await page.getByLabel("Cleanup note").fill("Sprint 2 source log");
   await page.getByRole("button", { name: "Save draft", exact: true }).click();
-  await page.getByRole("link", { name: "Sync Queue", exact: true }).click();
+  await commitSaved(page);
+}
+async function fetchUploaded(page: Page) {
   await page
-    .getByRole("link", { name: "Fetch Pending Logs", exact: true })
+    .getByRole("link", { name: "Uploaded Logs", exact: true })
+    .first()
     .click();
+  await page.getByRole("button", { name: "Fetch Logs", exact: true }).click();
+}
+async function openRecord(page: Page) {
+  await queueLog(page);
+  await page.getByRole("button", { name: "Upload Log", exact: true }).click();
+  await expect(page.getByTestId("queue-row")).toHaveCount(0);
+  await fetchUploaded(page);
   await page.getByRole("link", { name: "New Record", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Complete your record." }),
@@ -117,61 +134,44 @@ test("S2 receipt IndexedDB persistence, preview, retake cancellation and invalid
   });
   await expect(page.getByRole("alert")).toContainText("3 MB");
 });
-test("S2 Chrome offline, local commit, online sync, failure retry and no duplicates", async ({
+test("S2 Chrome offline commit, online upload failure and retry without duplicates", async ({
   page,
   context,
 }) => {
-  await openRecord(page);
-  await details(page);
+  await page.goto("/logs");
   await context.setOffline(true);
-  await expect(page.getByTestId("connectivity")).toContainText("Offline");
-  await finalize(page);
-  await page
-    .getByRole("link", { name: "View Sync Queue", exact: true })
-    .last()
-    .click();
-  await expect(page.getByTestId("queue-row")).toHaveCount(1);
-  await page.getByRole("radio", { name: "Select log" }).check();
+  await page.getByRole("link", { name: "Create log", exact: true }).click();
+  await page.getByRole("button", { name: "4 Note", exact: true }).click();
+  await page.getByLabel("Cleanup note").fill("Offline source");
+  await page.getByRole("button", { name: "Save draft", exact: true }).click();
+  await commitSaved(page);
   await page.getByRole("button", { name: "Upload Log", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("offline");
   await context.setOffline(false);
-  await expect(page.getByTestId("connectivity")).toContainText("Online");
   await page.getByLabel("Simulation outcome").selectOption("fail");
-  await page.getByRole("radio", { name: "Select log" }).check();
   await page.getByRole("button", { name: "Upload Log", exact: true }).click();
   await expect(page.getByTestId("queue-row")).toContainText("Failed");
   await page.getByLabel("Simulation outcome").selectOption("success");
   await page.getByRole("button", { name: "Try Again", exact: true }).click();
-  await expect(page.getByTestId("queue-row")).toContainText(
-    "Uploaded (simulated)",
-  );
-  await expect(page.getByTestId("queue-row")).toHaveCount(1);
+  await expect(page.getByTestId("queue-row")).toHaveCount(0);
+  await fetchUploaded(page);
+  await expect(page.getByTestId("uploaded-log")).toHaveCount(1);
   await page.reload();
-  await expect(page.getByTestId("queue-row")).toContainText(
-    "Uploaded (simulated)",
-  );
+  await page.getByRole("button", { name: "Fetch Logs", exact: true }).click();
+  await expect(page.getByTestId("uploaded-log")).toHaveCount(1);
 });
 test("S2 interrupt upload when connection drops and recover", async ({
   page,
   context,
 }) => {
-  await openRecord(page);
-  await details(page);
-  await finalize(page);
-  await page
-    .getByRole("link", { name: "View Sync Queue", exact: true })
-    .last()
-    .click();
-  await page.getByRole("radio", { name: "Select log" }).check();
+  await queueLog(page);
   await page.getByRole("button", { name: "Upload Log", exact: true }).click();
   await expect(page.getByTestId("queue-row")).toContainText("Syncing");
   await context.setOffline(true);
   await expect(page.getByTestId("queue-row")).toContainText("Failed");
   await context.setOffline(false);
   await page.getByRole("button", { name: "Try Again", exact: true }).click();
-  await expect(page.getByTestId("queue-row")).toContainText(
-    "Uploaded (simulated)",
-  );
+  await expect(page.getByTestId("queue-row")).toHaveCount(0);
 });
 test("S2 submission failure preserves edits and retry locks final record", async ({
   page,
@@ -237,23 +237,17 @@ for (const width of [375, 768, 1440])
       .getByRole("link", { name: "View Sync Queue", exact: true })
       .first()
       .click();
-    await expect(page.getByTestId("queue-row")).toHaveCount(1);
-    // Remove the source fixture to exercise the genuine empty queue, too.
-    await page.evaluate(() => localStorage.removeItem("fragile:v1:drafts"));
-    await page
-      .getByRole("button", { name: "Refresh Local Queue", exact: true })
-      .click();
     await expect(
       page.getByText("Your sync queue is empty.", { exact: true }),
     ).toBeVisible();
-    await page
-      .getByRole("button", { name: "Refresh Local Queue", exact: true })
-      .click();
-    await page
-      .getByRole("link", { name: "Fetch Pending Logs", exact: true })
-      .click();
+    await fetchUploaded(page);
+    await expect(page.getByTestId("uploaded-log")).toHaveCount(1);
+    await page.evaluate(() =>
+      localStorage.removeItem("fragile:v2:log-transfers"),
+    );
+    await page.getByRole("button", { name: "Fetch Logs", exact: true }).click();
     await expect(
-      page.getByText("No pending logs.", { exact: true }),
+      page.getByText("No uploaded logs.", { exact: true }),
     ).toBeVisible();
     expect(
       await page.evaluate(
@@ -262,34 +256,18 @@ for (const width of [375, 768, 1440])
     ).toBe(true);
   });
 
-test("S2 pending fetch, selected-only updates, refresh and interrupted reload recovery", async ({
+test("S2 interrupted reload recovery and explicit fetch of uploaded logs", async ({
   page,
 }) => {
-  await openRecord(page);
-  await details(page);
-  await finalize(page);
-  await page
-    .getByRole("link", { name: "View Sync Queue", exact: true })
-    .last()
-    .click();
-  await page
-    .getByRole("link", { name: "Fetch Pending Logs", exact: true })
-    .click();
-  await expect(page.getByTestId("queue-row")).toHaveCount(1);
-  await page.reload();
-  await expect(page.getByTestId("queue-row")).toContainText("REF-12345");
-  await page.getByRole("button", { name: "Upload Log", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("select a valid");
-  await page.getByRole("radio", { name: "Select log" }).check();
+  await queueLog(page);
   await page.getByRole("button", { name: "Upload Log", exact: true }).click();
   await expect(page.getByTestId("queue-row")).toContainText("Syncing");
   await page.reload();
   await expect(page.getByTestId("queue-row")).toContainText("Failed");
-  await page.getByRole("radio", { name: "Select log" }).check();
   await page.getByRole("button", { name: "Try Again", exact: true }).click();
-  await expect(
-    page.getByText("No pending logs.", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByTestId("queue-row")).toHaveCount(0);
+  await fetchUploaded(page);
+  await expect(page.getByTestId("uploaded-log")).toHaveCount(1);
 });
 test("S2 offline image and signature edits persist and confirmed receipt replacement updates same record", async ({
   page,
@@ -373,13 +351,15 @@ test("S2 malformed storage and unavailable IndexedDB show recoverable feedback",
 }) => {
   await page.goto("/sync");
   await page.evaluate(() =>
-    localStorage.setItem("fragile:v2:records", "broken"),
+    localStorage.setItem("fragile:v2:log-transfers", "broken"),
   );
   await page
     .getByRole("button", { name: "Refresh Local Queue", exact: true })
     .click();
   await expect(page.getByRole("alert")).toContainText("untouched");
-  await page.evaluate(() => localStorage.removeItem("fragile:v2:records"));
+  await page.evaluate(() =>
+    localStorage.removeItem("fragile:v2:log-transfers"),
+  );
   await openRecord(page);
   await page.evaluate(() => {
     Object.defineProperty(window, "indexedDB", {
@@ -404,37 +384,19 @@ test("S2 malformed storage and unavailable IndexedDB show recoverable feedback",
     .click();
 });
 
-test("S2 only selected upload changes, unsupported draft selection rejected and no API requests", async ({
+test("S2 batch upload excludes uncommitted logs and makes no API requests", async ({
   page,
 }) => {
-  await openRecord(page);
-  await details(page);
-  await finalize(page);
-  await page
-    .getByRole("link", { name: "View Sync Queue", exact: true })
-    .last()
-    .click();
+  await queueLog(page);
   await page.evaluate(() => {
-    const rows = JSON.parse(localStorage.getItem("fragile:v2:records")!);
-    rows.push({ ...rows[0], id: "second-log", reference: "REF-SECOND" });
-    rows.push({
-      ...rows[0],
-      id: "draft-log",
-      status: "DRAFT",
-      reference: "REF-DRAFT",
-    });
-    localStorage.setItem("fragile:v2:records", JSON.stringify(rows));
+    const rows = JSON.parse(localStorage.getItem("fragile:v2:log-transfers")!);
+    rows.push({ ...rows[0], id: "second-log", note: "Second log" });
+    localStorage.setItem("fragile:v2:log-transfers", JSON.stringify(rows));
   });
   await page
     .getByRole("button", { name: "Refresh Local Queue", exact: true })
     .click();
-  await expect(page.getByTestId("queue-row")).toHaveCount(3);
-  await expect(
-    page
-      .getByTestId("queue-row")
-      .filter({ hasText: "REF-DRAFT" })
-      .getByRole("radio"),
-  ).toHaveCount(0);
+  await expect(page.getByTestId("queue-row")).toHaveCount(2);
   const requests: string[] = [];
   page.on("request", (r) => {
     if (
@@ -443,21 +405,15 @@ test("S2 only selected upload changes, unsupported draft selection rejected and 
     )
       requests.push(r.url());
   });
-  await page
-    .getByTestId("queue-row")
-    .filter({ hasText: "REF-SECOND" })
-    .getByRole("radio")
-    .check();
   await page.getByRole("button", { name: "Upload Log", exact: true }).click();
+  await expect(page.getByTestId("queue-row")).toHaveCount(0);
+  await fetchUploaded(page);
+  await expect(page.getByTestId("uploaded-log")).toHaveCount(2);
   await expect(
-    page.getByTestId("queue-row").filter({ hasText: "REF-SECOND" }),
-  ).toContainText("Uploaded (simulated)");
-  await expect(
-    page.getByTestId("queue-row").filter({ hasText: "REF-12345" }),
-  ).toContainText("Pending Upload");
+    page.getByTestId("uploaded-log").filter({ hasText: "Second log" }),
+  ).toHaveCount(1);
   expect(requests).toEqual([]);
 });
-
 test("S2 legacy draft becomes a final snapshot without changing the original", async ({
   page,
 }) => {
@@ -482,12 +438,10 @@ test("S2 legacy draft becomes a final snapshot without changing the original", a
     );
   });
   await page.reload();
-  await page
-    .getByRole("link", { name: "View in Sync Queue", exact: true })
-    .click();
-  await page
-    .getByRole("link", { name: "Fetch Pending Logs", exact: true })
-    .click();
+  await commitSaved(page);
+  await page.getByRole("button", { name: "Upload Log", exact: true }).click();
+  await expect(page.getByTestId("queue-row")).toHaveCount(0);
+  await fetchUploaded(page);
   await page.getByRole("link", { name: "New Record", exact: true }).click();
   await expect(
     page.getByText("Preserved cleanup", { exact: true }),
@@ -501,4 +455,46 @@ test("S2 legacy draft becomes a final snapshot without changing the original", a
   expect(original.ownerId).toBe("legacy-account");
   await page.reload();
   await expect(page.getByLabel("Reference ID")).toBeDisabled();
+});
+
+test("S2 upload completion updates queue after navigating away and back", async ({
+  page,
+}) => {
+  await queueLog(page);
+  await page.getByRole("button", { name: "Upload Log", exact: true }).click();
+  await expect(page.getByTestId("queue-row")).toContainText("Syncing");
+  await page.getByRole("link", { name: "My field logs", exact: true }).click();
+  await page.getByRole("link", { name: "Sync Queue", exact: true }).click();
+  await expect(page.getByTestId("queue-row")).toHaveCount(0);
+});
+
+test("S2 failed upload completion write recovers through refresh and retry", async ({
+  page,
+}) => {
+  await queueLog(page);
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    (window as any).restore = () => {
+      Storage.prototype.setItem = original;
+    };
+    Storage.prototype.setItem = function (k, v) {
+      if (
+        k === "fragile:v2:log-transfers" &&
+        JSON.parse(v).some((r: { status: string }) => r.status === "UPLOADED")
+      )
+        throw Error("full");
+      original.call(this, k, v);
+    };
+  });
+  await page.getByRole("button", { name: "Upload Log", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Could not save");
+  await page.evaluate(() => (window as any).restore());
+  await page
+    .getByRole("button", { name: "Refresh Local Queue", exact: true })
+    .click({ timeout: 3000 });
+  await expect(page.getByTestId("queue-row")).toContainText("Failed");
+  await page.getByRole("button", { name: "Try Again", exact: true }).click();
+  await expect(page.getByTestId("queue-row")).toHaveCount(0);
+  await fetchUploaded(page);
+  await expect(page.getByTestId("uploaded-log")).toHaveCount(1);
 });

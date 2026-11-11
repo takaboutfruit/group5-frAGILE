@@ -3,7 +3,6 @@ import type { RecordData } from "./records";
 import { newDraft } from "./model";
 import {
   fromDraft,
-  listLogRecords,
   validateRecord,
   saveRecord,
   listRecords,
@@ -72,29 +71,24 @@ describe("Sprint 2 record contract", () => {
       }),
     ).toEqual({});
   });
-  it("enforces legal transitions and idempotent retry identity", () => {
-    let r = valid();
-    const id = r.id;
-    r = transition(r, "COMMITTED");
-    expect(() => transition(r, "DRAFT")).toThrow("transition");
-    r = transition(r, "SYNCING");
-    r = transition(r, "SYNC_FAILED");
-    r = transition(r, "SYNCING");
-    r = transition(r, "SYNCED");
-    expect(r.id).toBe(id);
-    expect(() => transition(r, "SYNCING")).toThrow("transition");
+  it("submits once and rejects subsequent record transitions", () => {
+    const r = valid();
+    const final = transition(r, "SUBMITTED");
+    expect(final.id).toBe(r.id);
+    expect(() => transition(final, "DRAFT")).toThrow("transition");
+    expect(() => transition(final, "SUBMITTED")).toThrow("transition");
   });
-  it("refuses incomplete commits", () =>
-    expect(() => transition(fromDraft(newDraft()), "COMMITTED")).toThrow(
+  it("refuses incomplete final submissions", () =>
+    expect(() => transition(fromDraft(newDraft()), "SUBMITTED")).toThrow(
       "required",
     ));
-  it("upserts, restores and locks committed records", () => {
+  it("upserts, restores and locks final records", () => {
     const s = memory();
     let r = valid();
     saveRecord(r, s);
     saveRecord({ ...r, weightKg: 14 }, s);
     expect(listRecords(s)).toHaveLength(1);
-    r = transition({ ...r, weightKg: 14 }, "COMMITTED");
+    r = transition({ ...r, weightKg: 14 }, "SUBMITTED");
     saveRecord(r, s);
     expect(() => saveRecord({ ...r, reference: "CHANGED" }, s)).toThrow(
       "locked",
@@ -146,9 +140,9 @@ describe("draft field updates", () => {
     const s = memory();
     const r = valid();
     saveRecord(r, s);
-    saveRecord(transition(r, "COMMITTED"), s);
+    saveRecord(transition(r, "SUBMITTED"), s);
     expect(() => saveRecord({ ...r, weightKg: 55 }, s)).toThrow("locked");
-    expect(listRecords(s)[0].status).toBe("COMMITTED");
+    expect(listRecords(s)[0].status).toBe("SUBMITTED");
   });
 });
 it("rejects malformed persisted cleanup fields without overwriting storage", () => {
@@ -161,59 +155,25 @@ it("rejects malformed persisted cleanup fields without overwriting storage", () 
   expect(() => listRecords(s)).toThrow("untouched");
 });
 
-describe("shared My logs and sync queue", () => {
-  it("projects every saved field log into the queue without writing another copy", () => {
-    const s = memory();
-    const d = { ...newDraft(), note: "Offline cleanup" };
-    s.setItem("fragile:v1:drafts", JSON.stringify([d]));
-    expect(listLogRecords(s)).toEqual([fromDraft(d)]);
-    expect(s.getItem("fragile:v2:records")).toBeNull();
-  });
-  it("carries source edits into unfinished records while preserving receipt and form fields", () => {
-    const s = memory();
-    const d = { ...newDraft(), note: "First" };
-    s.setItem("fragile:v1:drafts", JSON.stringify([d]));
-    saveRecord(
-      { ...fromDraft(d), reference: "REF-123", receiptImageId: "receipt" },
-      s,
-    );
-    s.setItem(
-      "fragile:v1:drafts",
-      JSON.stringify([
-        {
-          ...d,
-          note: "Updated",
-          location: { latitude: 13, longitude: 100, accuracy: 5 },
-        },
-      ]),
-    );
-    const rows = listLogRecords(s);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({
-      id: d.id,
-      note: "Updated",
-      reference: "REF-123",
-      receiptImageId: "receipt",
-      location: { latitude: 13, longitude: 100, accuracy: 5 },
-    });
-  });
-  it("deduplicates linked final records and preserves their locked details", () => {
-    const s = memory();
-    const r = valid();
-    s.setItem(
-      "fragile:v1:drafts",
-      JSON.stringify([{ ...r, note: "Later source edit" }]),
-    );
-    saveRecord(transition(r, "COMMITTED"), s);
-    expect(listLogRecords(s)).toHaveLength(1);
-    expect(listLogRecords(s)[0].note).toBe(r.note);
-  });
-});
-it("removes an unfinished linked record from the queue when its source log is deleted", () => {
+it("submits a completed final record without starting a log upload", () => {
   const s = memory();
-  const d = newDraft();
-  s.setItem("fragile:v1:drafts", JSON.stringify([d]));
-  saveRecord({ ...fromDraft(d), reference: "REF-SAVED" }, s);
-  s.setItem("fragile:v1:drafts", "[]");
-  expect(listLogRecords(s)).toEqual([]);
+  const r = transition(valid(), "SUBMITTED");
+  saveRecord(r, s);
+  expect(listRecords(s)[0].status).toBe("SUBMITTED");
+  expect(s.getItem("fragile:v2:log-transfers")).toBeNull();
+  expect(() => transition(r, "SYNCING" as RecordData["status"])).toThrow(
+    "transition",
+  );
+});
+it("does not allow final records to use field-log commit or sync transitions", () => {
+  expect(() =>
+    transition(valid(), "COMMITTED" as RecordData["status"]),
+  ).toThrow("transition");
+});
+it("reads legacy submitted records without treating them as log uploads or rewriting them", () => {
+  const s = memory();
+  const legacy = { ...valid(), status: "SYNCED" };
+  s.setItem("fragile:v2:records", JSON.stringify([legacy]));
+  expect(listRecords(s)[0].status).toBe("SUBMITTED");
+  expect(JSON.parse(s.getItem("fragile:v2:records")!)[0].status).toBe("SYNCED");
 });

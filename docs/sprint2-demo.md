@@ -1,28 +1,39 @@
-# Sprint 2 demo and verification
+# Sprint 2 flow and Chrome verification
 
-Run `npm ci`, then `npm run dev`. No backend or credentials are needed. Start at My logs to capture GPS/time/photo/note, including while offline. Save the log, open **Sync Queue**, reconnect, and choose **Fetch Pending Logs**. Choose **New Record** beside the existing log to carry its saved details into the record form. If already started, choose **Continue Record**. New records always start from an existing log; `/records/new` redirects to pending logs.
+Run `npm ci`, then `npm run dev`. The workflow is:
+
+**Offline → Create log → complete details → Save draft in My logs → Commit Logs in My logs → select saved logs → Confirm Commit → Sync Queue → reconnect → Upload Log → empty queue after successful uploads → Uploaded Logs page → Fetch Logs → New Record from an uploaded log → Submit Final Record.**
+
+## Distinct stages
+
+- Saving a log does not enqueue it. Unselected logs remain editable drafts in My logs.
+- **Commit Logs is on My logs.** Its dialog lets you select one or more saved logs. Confirm commits the selection as snapshots, locks those field logs, and navigates to Sync Queue. Cancel leaves all logs unchanged.
+- Sync Queue contains only committed, uploading or failed logs. Uploaded logs disappear from the queue; failures stay available for retry. Upload Log processes the committed queue in one action. Failures remain for retry.
+- **Uploaded Logs is a separate page.** Press **Fetch Logs** while online to show successfully uploaded logs. It does not show saved-only, committed-only or failed logs.
+- New Record carries over the uploaded log's ID, GPS, timestamp, photo and note. Record drafts resume with Continue Record. Final submission saves and locks the completed record without adding anything back to Sync Queue.
+- Log transfer state (`fragile:v2:log-transfers`) is separate from final record state (`fragile:v2:records`). Receipts are blobs in IndexedDB (`fragile-images`); object URLs are temporary display resources.
+
+## Chrome Network demo checklist
+
+1. Load the app, then switch DevTools → Network → **Offline**. Create and save two logs using the existing GPS/time/photo/note flow. Check both appear in My logs and neither appears in Sync Queue.
+2. Return to My logs. Press **Commit Logs**, select just one log and press **Cancel**. Verify the queue is unchanged.
+3. Press Commit Logs again, select one log, then **Confirm Commit**. Verify navigation to Sync Queue, one Pending Upload entry, and the unselected log still editable in My logs.
+4. Press **Upload Log** while offline. Verify a reconnect error and no data loss.
+5. Restore **No throttling**. Choose Failure under Simulation outcome, then Upload Log. Verify Failed remains in the queue. Choose Success and **Try Again**. Verify the log leaves the queue and the empty state appears.
+6. Open **Uploaded Logs**. No logs are listed before pressing **Fetch Logs**. Fetch and verify only successfully uploaded logs appear. Fetch again to verify no duplicates.
+7. Choose **New Record** on an uploaded log. Verify the original details carry over. Add reference, receipt, weight, material, contamination and signature. Save a draft and verify Continue Record restores it.
+8. Press **Submit Final Record**, confirm, and verify the final record is locked. Return to Sync Queue and verify final submission did not enqueue the record.
+9. For interruption recovery, start uploading another committed log and switch Offline during Syncing. Verify Failed remains and retry works after reconnecting. Reloading online during an upload also recovers it as Failed.
+10. Fetch while offline must show a reconnect error. Uncommitted/failed logs cannot be used to create new records, including by navigating directly to a record URL.
 
 ## Demo operational boundaries
 
-- Load the application **before** switching Chrome DevTools → Network → Offline. Offline reload/cold-start is not supported; no service worker is installed.
-- Records and signatures stay in localStorage (`fragile:v2:records`). Receipts are image blobs in IndexedDB (`fragile-images`). Clearing site data removes both. Storage is not a backup.
-- My logs and Sync Queue share log identity. Queue entries are projected from saved field logs without copying them. Record edits are stored under the same ID; source edits are reflected in unfinished records while receipt/reference/weight/signature fields are preserved. Final records retain their locked snapshot. Existing standalone records from the earlier version remain readable.
-- All upload results are **simulated locally**. Online status reflects the browser's connectivity signal, not proof of server reachability. No record or receipt is sent to a server.
-- Use one tab for the demo, as with Sprint 1. Concurrent editing/sync in multiple tabs is not a supported merge workflow.
-- A draft can be incomplete. Entered values must be valid; final commit requires reference, positive finite weight in kg, material, contamination and a nonblank signature. Other material requires a description. Reference permits letters, numbers and hyphens. Receipt input accepts JPEG/PNG strictly below 3 MiB. Cleanup photo is optional, with explicit confirmation when absent.
-
-## Chrome Network checklist
-
-1. Load the app, switch DevTools → Network → Offline, and create a field log. Add a note and/or GPS/photo; save it to **My logs**.
-2. Open **Sync Queue**. The same log appears automatically as Pending Record, with its saved details and no duplicate entry.
-3. Try **Fetch Pending Logs** offline: a reconnect message appears and New Record is unavailable. Restore No throttling; the pending log becomes available without reloading.
-4. Choose **New Record** for that log. Confirm that its GPS/time/photo/note carry over. Complete reference, weight, material, contamination and signature; optionally attach a receipt. Save and reopen with **Continue Record** to verify the same record resumes.
-5. You may edit/save an already-open record offline. Submit Final Record and confirm locking, then open Sync Queue. Upload Log while offline shows an error and preserves the saved record. Restore No throttling before proceeding.
-6. Choose Failure under Simulation outcome, then Upload Log. After 1.5 seconds it becomes Failed with its details preserved.
-7. Choose Success, then Try Again. The same record becomes Uploaded (simulated). Counts update without duplication.
-8. For interruption, begin another upload, switch to Offline while it shows Syncing, then reconnect and retry. The interrupted record remains recoverable. Reloading online during an upload also recovers it as Failed.
-9. Open Fetch Pending Logs: source logs awaiting a record, unfinished records, and committed/syncing/failed records appear when online. Refresh Local Queue reads device storage only. Uploaded records remain available in Sync Queue.
-10. Reopen a final record and verify inputs are locked. Create log starts the field-log capture flow; new records are created only from existing pending logs.
+- Load before turning the network off. Offline reload/cold-start is not supported; no service worker is installed.
+- Upload and fetch are **local simulations**, not server transfers. Browser online status is a connectivity signal, not proof of server reachability. No log, record or receipt leaves the device.
+- Clearing site data deletes local logs, transfers, records and receipts. There is no backup.
+- Use one tab for the demo; concurrent editing is not a merge workflow.
+- A record requires reference, positive finite weight in kg, material, contamination and a nonblank signature. Other material requires a description. Reference allows letters, numbers and hyphens. Receipt input accepts JPEG/PNG strictly below 3 MiB. Cleanup photo is optional, with confirmation when absent.
+- Existing final records from earlier versions remain readable. Old `/pending` and `/records/new` links redirect to Uploaded Logs; neither creates a blank record.
 
 ## Automated checks
 
@@ -32,4 +43,4 @@ npm run build
 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e
 ```
 
-If using Playwright's downloaded Chromium instead, run `npx playwright install chromium` and omit `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`. Browser tests use native context offline emulation, actual image decoding/IndexedDB persistence, canvas drawing, deterministic failure outcomes, and responsive viewports. They do not depend on a mocked `navigator.onLine` or an application offline toggle. The spreadsheet requirement mapping is in `sprint2-test-matrix.md`.
+Browser tests use native offline emulation, real image decoding and IndexedDB persistence, canvas drawing, deterministic upload failures, and responsive viewports. See `sprint2-test-matrix.md` for the 102 spreadsheet requirements mapped to grouped executable tests.

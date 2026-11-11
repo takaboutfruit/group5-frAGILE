@@ -4,7 +4,9 @@ A responsive ocean-cleanup field log built from the mockups in `frAGILE_frontend
 
 ## Sprint 2
 
-Sync Queue, local commit, simulated upload/retry, pending records, receipt upload/retake, reference and weight editing, signature capture/clear, material/contamination selection, and locally locked final records are implemented. Create a log offline, save it in **My logs**, and open **Sync Queue** to see the same log automatically. Once online, choose **Fetch Pending Logs**, then **New Record** for an existing log. Saved GPS/time/photo/note carry over, and **Continue Record** resumes saved record details without duplicates. Uploads require the browser to be online but never send data to a server. Offline local work is supported after initial load.
+Save logs offline in **My logs**. They do not enter Sync Queue until you press **Commit Logs** on My logs, select the logs, and confirm. Once online, upload committed logs from **Sync Queue**; successful uploads leave the queue. Open the separate **Uploaded Logs** page and press **Fetch Logs** to see uploaded logs, then choose **New Record** to complete and submit a final record using the original log details. Final submission does not queue the record again.
+
+Receipt upload/retake, reference and weight editing, signature capture/clear, material/contamination selection, and locally locked final records are implemented. Upload/fetch are frontend simulations with no server transfer. Offline work is supported after initial load.
 
 See [the demo and Chrome Network checklist](docs/sprint2-demo.md) and [all 102 mapped acceptance cases](docs/sprint2-test-matrix.md).
 
@@ -63,7 +65,7 @@ Unit tests cover CRUD, compatibility with legacy account-associated drafts, fail
 
 - Registration is a standalone browser-local demo; **there is no authentication in this phase**. Passwords are stored as salted PBKDF2 verifiers rather than plaintext, but anyone with access to browser storage can inspect or modify records. Do not use real credentials or sensitive records.
 - Accounts and drafts use versioned `fragile:v1:*` localStorage keys. Drafts are shared within this browser, independently of accounts. Existing drafts from the earlier account-scoped version remain available without signing in; their original metadata is preserved. Old session data is ignored. No data leaves the app for an API, and account creation does not require a network connection.
-- Browser storage quotas apply, especially to photos. Failed saves retain the active form and the last saved record. Clearing browser data removes all accounts, drafts, and photos. There is no backup, real server synchronization, server timestamp, or network upload. Sprint 2 final submission locks a local record and queues it for simulated upload.
+- Browser storage quotas apply, especially to photos. Failed saves retain the active form and the last saved record. Clearing browser data removes all accounts, drafts, and photos. There is no backup, real server synchronization, server timestamp, or network upload. Sprint 2 commits field logs for simulated upload, then creates and locks final records from uploaded logs.
 - Offline editing works **while the application is already loaded**. There is no service worker or offline cold-start/reload support in this simplified scope.
 - GPS and camera availability depend on the browser, permissions, device, and HTTPS. The location illustration is decorative; it is not an interactive map. Device timestamps are not verified by a server.
 - No photo is attached until **Use photo** is selected. All form changes require **Save draft**. Navigation warns before discarding unsaved edits.

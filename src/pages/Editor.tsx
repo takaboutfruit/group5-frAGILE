@@ -14,6 +14,7 @@ import {
   MapPin,
   RefreshCw,
 } from "lucide-react";
+import { listTransfers } from "../transfers";
 import type { Draft } from "../model";
 import {
   completion,
@@ -39,6 +40,10 @@ const steps = [
 export default function Editor({ id }: { id?: string }) {
   const [initial] = useState(() => {
     try {
+      if (id && listTransfers().some((t) => t.id === id))
+        throw Error(
+          "This log has been committed and is locked. Open Sync Queue or Uploaded Logs.",
+        );
       const draft = id ? listDrafts().find((d) => d.id === id) : newDraft();
       return {
         draft,

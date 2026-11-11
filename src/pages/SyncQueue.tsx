@@ -1,41 +1,35 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { CloudUpload, RefreshCw, FileText } from "lucide-react";
-import type { RecordData } from "../records";
+import type { LogTransfer } from "../transfers";
 import {
-  listRecords,
-  listLogRecords,
-  saveRecord,
-  statusLabel,
-  transition,
-} from "../records";
+  listTransfers,
+  updateTransfer,
+  updateTransfers,
+  transferLabel,
+} from "../transfers";
 import { useOnline } from "../connectivity";
 import { Alert, Badge } from "../components/ui";
 import { date, message, shortId } from "../utils";
 const running = new Set<string>();
-export default function SyncQueue({ pending = false }: { pending?: boolean }) {
+export default function SyncQueue() {
   const online = useOnline();
-  const [rows, setRows] = useState<RecordData[]>([]);
+  const [rows, setRows] = useState<LogTransfer[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [selected, setSelected] = useState("");
   const [outcome, setOutcome] = useState("success");
   const [busy, setBusy] = useState(false);
   const interrupted = useRef(false);
   function load() {
     try {
-      let records = listLogRecords();
-      for (const r of records) {
-        if (r.status === "SYNCING" && !running.has(r.id)) {
-          saveRecord({
-            ...transition(r, "SYNC_FAILED"),
-            syncError:
-              "The previous upload was interrupted. Retry this record.",
-          });
-        }
-      }
-      records = listLogRecords();
-      setRows(records);
+      for (const t of listTransfers())
+        if (t.status === "SYNCING" && !running.has(t.id))
+          updateTransfer(
+            t.id,
+            "FAILED",
+            localStorage,
+            "Upload interrupted. Retry when online.",
+          );
+      setRows(listTransfers().filter((t) => t.status !== "UPLOADED"));
       setError("");
     } catch (e) {
       setError(message(e));
@@ -44,220 +38,150 @@ export default function SyncQueue({ pending = false }: { pending?: boolean }) {
   useEffect(() => {
     load();
     window.addEventListener("storage", load);
-    return () => window.removeEventListener("storage", load);
-  }, []);
-  useEffect(() => {
-    const stop = () => {
-      interrupted.current = true;
+    window.addEventListener("fragile:transfers", load);
+    return () => {
+      window.removeEventListener("storage", load);
+      window.removeEventListener("fragile:transfers", load);
     };
-    window.addEventListener("offline", stop);
-    return () => window.removeEventListener("offline", stop);
   }, []);
   async function upload() {
     setError("");
     setNotice("");
     if (!navigator.onLine) {
       setError(
-        "You’re offline. Your record is saved; reconnect before syncing.",
+        "You’re offline. Reconnect before uploading; your committed logs are safe.",
       );
       return;
     }
-    let r: RecordData | undefined;
+    let ids: string[] = [];
+    const stop = () => {
+      interrupted.current = true;
+    };
     try {
-      r = listRecords().find((v) => v.id === selected);
-    } catch (e) {
-      setError(message(e));
-      return;
-    }
-    if (!r || !["COMMITTED", "SYNC_FAILED"].includes(r.status)) {
-      setError("Please select a valid committed log before uploading.");
-      return;
-    }
-    if (running.has(r.id)) return;
-    running.add(r.id);
-    interrupted.current = false;
-    setBusy(true);
-    try {
-      saveRecord(transition(r, "SYNCING"));
-      setRows(listLogRecords());
+      const all = listTransfers();
+      if (all.some((t) => t.status === "SYNCING")) return;
+      ids = all
+        .filter((t) => t.status === "COMMITTED" || t.status === "FAILED")
+        .map((t) => t.id);
+      if (!ids.length) {
+        setError("No committed logs are waiting to upload.");
+        return;
+      }
+      ids.forEach((id) => running.add(id));
+      window.addEventListener("offline", stop);
+      interrupted.current = false;
+      setBusy(true);
+      updateTransfers(ids, "SYNCING");
+      setRows(listTransfers().filter((t) => t.status !== "UPLOADED"));
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      const current = listRecords().find((v) => v.id === r.id)!;
-      if (
-        outcome === "fail" ||
-        outcome === "interrupt" ||
-        interrupted.current ||
-        !navigator.onLine
-      ) {
+      const failed =
+        outcome !== "success" || interrupted.current || !navigator.onLine;
+      if (failed) {
         const reason =
-          interrupted.current || outcome === "interrupt" || !navigator.onLine
-            ? "Upload interrupted. Your log is preserved; retry when online."
-            : "Simulated upload failed. Your log is preserved; try again.";
-        saveRecord({
-          ...transition(current, "SYNC_FAILED"),
-          syncError: reason,
-        });
+          outcome === "fail"
+            ? "Simulated upload failed. Retry the same log."
+            : "Upload interrupted. Your log is preserved; retry when online.";
+        updateTransfers(ids, "FAILED", localStorage, reason);
         setError(reason);
       } else {
-        saveRecord(transition(current, "SYNCED"));
+        updateTransfers(ids, "UPLOADED");
         setNotice(
-          "Log uploaded successfully! Local simulation only — no data left this device.",
+          "Logs uploaded successfully (simulated). They are now available on Uploaded Logs.",
         );
       }
-      setRows(listLogRecords());
+      setRows(listTransfers().filter((t) => t.status !== "UPLOADED"));
     } catch (e) {
       setError(message(e));
     } finally {
-      running.delete(r.id);
+      ids.forEach((id) => running.delete(id));
+      window.removeEventListener("offline", stop);
       setBusy(false);
     }
   }
-  const waiting = rows.filter(
-    (r) =>
-      r.status === "DRAFT" ||
-      r.status === "COMMITTED" ||
-      r.status === "SYNC_FAILED" ||
-      r.status === "SYNCING",
-  );
-  const visible = pending ? (online ? waiting : []) : rows;
-  const recordIds = new Set(listRecordIds());
-  function listRecordIds() {
-    try {
-      return listRecords().map((r) => r.id);
-    } catch {
-      return [];
-    }
-  }
-  const picked = rows.find((r) => r.id === selected);
   return (
     <main className="narrow page queue-page">
-      <div className="eyebrow">SAVED ON THIS DEVICE</div>
-      <h1>{pending ? "Pending logs." : "Synchronization Queue."}</h1>
+      <div className="eyebrow">COMMITTED FIELD LOGS</div>
+      <h1>Synchronization Queue.</h1>
       <p>
-        View logs waiting to be synchronized. This prototype simulates uploads
-        locally.
+        Only logs confirmed with Commit Logs in My logs appear here. Successful
+        uploads leave this queue.
       </p>
       <div className="record-links">
-        <Link to="/logs/new">Create log</Link>
-        <Link to={pending ? "/sync" : "/pending"}>
-          {pending ? "View Sync Queue" : "Fetch Pending Logs"}
-        </Link>
+        <Link to="/logs">My field logs</Link>
+        <Link to="/uploaded">Uploaded Logs</Link>
       </div>
       <div
         className={`connection-status ${online ? "connected" : "disconnected"}`}
-        role="status"
       >
         {online
           ? "Online · Simulated upload available"
-          : "Offline · Saved on device"}
+          : "Offline · Logs saved on device"}
       </div>
       <div className="queue-stats">
         <div>
-          <strong>{waiting.length}</strong>Total Queued
+          <strong>{rows.length}</strong>Total Queued
         </div>
         <div>
-          <strong>
-            {waiting.filter((r) => r.status !== "SYNC_FAILED").length}
-          </strong>
+          <strong>{rows.filter((r) => r.status !== "FAILED").length}</strong>
           Waiting to Sync
         </div>
         <div>
-          <strong>
-            {rows.filter((r) => r.status === "SYNC_FAILED").length}
-          </strong>
+          <strong>{rows.filter((r) => r.status === "FAILED").length}</strong>
           Failed
         </div>
       </div>
-      {pending && !online && (
-        <Alert>
-          Reconnect to fetch pending logs. Your logs remain saved on this
-          device.
-        </Alert>
-      )}
       {error && <Alert>{error}</Alert>}
       {notice && <Alert success>{notice}</Alert>}
-      {!visible.length && (!pending || online) && (
+      {!rows.length && (
         <section className="empty-state">
-          <CloudUpload size={50} />
-          <h2>{pending ? "No pending logs." : "Your sync queue is empty."}</h2>
+          <h2>Your sync queue is empty.</h2>
           <p>
-            No queued logs on this device. This does not confirm server
-            synchronization.
+            Save logs in My logs, then select Commit Logs. Uploaded logs are
+            available on the separate Uploaded Logs page.
           </p>
         </section>
       )}
       <div className="queue-list">
-        {visible.map((r) => (
-          <article
-            className={`queue-row ${selected === r.id ? "selected" : ""}`}
-            key={r.id}
-            data-testid="queue-row"
-          >
+        {rows.map((t) => (
+          <article key={t.id} data-testid="queue-row" className="queue-row">
             <div className="queue-row-top">
-              <strong>
-                <FileText size={18} /> Log #{shortId(r.id)}
-              </strong>
-              <Badge>
-                {r.status === "DRAFT"
-                  ? "Pending Record"
-                  : statusLabel[r.status]}
-              </Badge>
+              <strong>Log #{shortId(t.id)}</strong>
+              <Badge>{transferLabel[t.status]}</Badge>
             </div>
-            <p>{r.reference || r.note || "Cleanup record"}</p>
-            <p className="small muted">Updated: {date(r.updatedAt)}</p>
-            {r.syncError && <p className="queue-error">{r.syncError}</p>}
-            <div className="record-actions">
-              {r.status === "DRAFT" ? (
-                pending ? (
-                  <Link to={`/records/${r.id}`}>
-                    {recordIds.has(r.id) ? "Continue Record" : "New Record"}
-                  </Link>
-                ) : (
-                  <Link to="/pending">View pending log</Link>
-                )
-              ) : (
-                <Link to={`/records/${r.id}`}>View record</Link>
-              )}
-              {["COMMITTED", "SYNC_FAILED"].includes(r.status) && (
-                <label className="queue-select">
-                  <input
-                    type="radio"
-                    name="selected-log"
-                    value={r.id}
-                    checked={selected === r.id}
-                    disabled={busy}
-                    onChange={() => setSelected(r.id)}
-                  />{" "}
-                  Select log
-                </label>
-              )}
-            </div>
+            <p>{t.note || "Cleanup log"}</p>
+            <p className="small muted">Captured: {date(t.capturedAt)}</p>
+            {t.photo && (
+              <img
+                className="receipt-image"
+                src={t.photo}
+                alt="Committed cleanup evidence"
+              />
+            )}
+            {t.syncError && <p className="queue-error">{t.syncError}</p>}
           </article>
         ))}
       </div>
-      <div className="record-section">
-        <p className="small muted">
-          Refresh reads records on this device. It does not connect to a server.
-        </p>
+      <section className="record-section">
         <button
           className="button secondary full"
           onClick={load}
           disabled={busy}
         >
-          <RefreshCw size={16} /> Refresh Local Queue
+          Refresh Local Queue
         </button>
-      </div>
-      {(!pending || online) && waiting.some((r) => r.status !== "DRAFT") && (
+      </section>
+      {rows.length > 0 && (
         <section className="record-section">
-          <h2>
-            <CloudUpload size={22} /> Upload Log
-          </h2>
-          <p>Choose a committed log above. Nothing is sent online.</p>
+          <h2>Upload Log</h2>
+          <p>
+            Upload all committed logs in this queue. Local simulation only; no
+            data is sent to a server.
+          </p>
           <label>
             Simulation outcome
             <select
-              aria-label="Simulation outcome"
               value={outcome}
-              disabled={busy}
+              disabled={busy || rows.some((t) => t.status === "SYNCING")}
               onChange={(e) => setOutcome(e.target.value)}
             >
               <option value="success">Success</option>
@@ -267,22 +191,21 @@ export default function SyncQueue({ pending = false }: { pending?: boolean }) {
           </label>
           <button
             className="button primary full"
-            disabled={busy}
+            disabled={busy || rows.some((t) => t.status === "SYNCING")}
             onClick={() => void upload()}
           >
-            {busy
+            {busy || rows.some((t) => t.status === "SYNCING")
               ? "Syncing…"
-              : picked?.status === "SYNC_FAILED"
+              : rows.some((t) => t.status === "FAILED")
                 ? "Try Again"
                 : "Upload Log"}
           </button>
         </section>
       )}
       <aside className="field-tip">
-        <span>DEMO OPERATIONAL BOUNDARIES</span>Load the app before switching
-        Chrome Network to Offline. Local edits and saves keep working. Reconnect
-        before simulated upload. Offline reload and cold-start are outside
-        Sprint 2.
+        <span>DEMO OPERATIONAL BOUNDARIES</span>Load before switching Chrome
+        Network to Offline. Commit locally while offline; reconnect to upload.
+        Offline reload is outside scope.
       </aside>
     </main>
   );

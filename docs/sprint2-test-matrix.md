@@ -2,48 +2,48 @@
 
 Source: `sprint2_test_cases.xlsm`, first worksheet. TC001–TC102 are assigned in worksheet order; worksheet row numbers are retained. Repeated spreadsheet cases are grouped into executable scenarios; **102 mapped requirements does not mean 102 separately executed tests**.
 
-The corrected shared-log flow is verified in `tests/log-flow.spec.ts`: offline capture → My logs → Sync Queue → reconnect → Fetch Pending Logs → linked New Record, including repeated continuation and no blank standalone record creation.
+The corrected staged flow is verified in `tests/log-flow.spec.ts`: offline capture → Save in My logs (queue empty) → Commit Logs on My logs → choose and confirm saved logs → queue → online upload (successful logs leave queue) → Uploaded Logs → explicit Fetch Logs → New Record → final submission (queue stays empty). Cancellation, failed commit writes, selection preservation, uncommitted-record rejection and offline fetch are covered.
 
-Specs: `tests/sprint2.spec.ts` (browser journeys and responsive checks), `src/records.test.ts` (validation, state transitions, persistence and failed writes). Sprint 1 regression coverage remains in `tests/demo.spec.ts` and `src/model.test.ts`.
+Specs: `tests/sprint2.spec.ts` (browser journeys and responsive checks), `src/transfers.test.ts` (atomic commits, upload transitions and uploaded-only fetch), `src/records.test.ts` (record validation, final submission, persistence and failed writes). Sprint 1 regression coverage remains in `tests/demo.spec.ts` and `src/model.test.ts`.
 
 The revised guide supersedes generic API/backend tasks: all operations use local storage with an asynchronous 1.5-second upload simulation. Native offline mode blocks sync but permits local commit. Material options are bundled, so no remote list request can fail; bundled options fulfill the default-list fallback. Receipt validation is JPEG/PNG and strictly below 3 MiB. References accept letters, numbers and hyphens, matching the design example. Optional cleanup-photo confirmation is separate from receipt evidence.
 
-The 15 design exports are implemented as consolidated responsive record, queue and pending-log views, with their validation, preview, confirmation, saved, failed and retry states. Camera hardware and OS picker permissions require a real device; browser tests use real image files and canvas decoding. Visual hierarchy is checked through screenshots and layout/control assertions, not pixel-perfect screenshot matching.
+The 15 design exports are implemented as consolidated responsive record, commit selection, queue and uploaded-log views, with their validation, preview, confirmation, saved, failed and retry states. Camera hardware and OS picker permissions require a real device; browser tests use real image files and canvas decoding. Visual hierarchy is checked through screenshots and layout/control assertions, not pixel-perfect screenshot matching.
 
 | Case | Worksheet row | Story | Spreadsheet scenario | Executable coverage (test title prefix) |
 |---|---|---|---|---|
 | TC001 | 2 | View Sync Queue | View Sync Queue layout renders | S2 layout 375 / 768 / 1440 |
 | TC002 | 3 | View Sync Queue | View Sync Queue responsive layout | S2 layout 375 / 768 / 1440 |
-| TC003 | 4 | View Sync Queue | View Sync Queue populated view | S2 layout …; S2 Chrome offline…; S2 pending fetch… |
-| TC004 | 5 | View Sync Queue | View Sync Queue empty view | S2 layout …; S2 Chrome offline…; S2 pending fetch… |
-| TC005 | 6 | View Sync Queue | View Sync Queue populated view | S2 layout …; S2 Chrome offline…; S2 pending fetch… |
-| TC006 | 7 | View Sync Queue | View Sync Queue empty view | S2 layout …; S2 Chrome offline…; S2 pending fetch… |
-| TC007 | 8 | Commit Log | Commit Log layout renders | S2 layout 375 / 768 / 1440 |
-| TC008 | 9 | Commit Log | Commit Log responsive layout | S2 layout 375 / 768 / 1440 |
-| TC009 | 10 | Commit Log | Commit Log main behavior | S2 details validation…; S2 submission failure…; record contract (Vitest) |
-| TC010 | 11 | Commit Log | Commit Log edge behavior | S2 details validation…; S2 submission failure…; record contract (Vitest) |
-| TC011 | 12 | Commit Log | Commit Log main behavior | S2 details validation…; S2 submission failure…; record contract (Vitest) |
-| TC012 | 13 | Commit Log | Commit Log edge behavior | S2 details validation…; S2 submission failure…; record contract (Vitest) |
-| TC013 | 14 | Commit Log | Commit Log local data integration | S2 details validation…; S2 submission failure…; record contract (Vitest) |
-| TC014 | 15 | Commit Log | Commit Log reload persistence | S2 details validation…; S2 submission failure…; record contract (Vitest) |
+| TC003 | 4 | View Sync Queue | View Sync Queue populated view | S2 layout …; S2 Chrome offline…; S2 interrupted reload recovery… |
+| TC004 | 5 | View Sync Queue | View Sync Queue empty view | S2 layout …; S2 Chrome offline…; S2 interrupted reload recovery… |
+| TC005 | 6 | View Sync Queue | View Sync Queue populated view | S2 layout …; S2 Chrome offline…; S2 interrupted reload recovery… |
+| TC006 | 7 | View Sync Queue | View Sync Queue empty view | S2 layout …; S2 Chrome offline…; S2 interrupted reload recovery… |
+| TC007 | 8 | Commit Log | Commit Log layout renders | offline save stays out of queue…; commit cancellation…; field log commit and upload lifecycle (Vitest) |
+| TC008 | 9 | Commit Log | Commit Log responsive layout | offline save stays out of queue…; commit cancellation…; field log commit and upload lifecycle (Vitest) |
+| TC009 | 10 | Commit Log | Commit Log main behavior | offline save stays out of queue…; commit cancellation…; field log commit and upload lifecycle (Vitest) |
+| TC010 | 11 | Commit Log | Commit Log edge behavior | offline save stays out of queue…; commit cancellation…; field log commit and upload lifecycle (Vitest) |
+| TC011 | 12 | Commit Log | Commit Log main behavior | offline save stays out of queue…; commit cancellation…; field log commit and upload lifecycle (Vitest) |
+| TC012 | 13 | Commit Log | Commit Log edge behavior | offline save stays out of queue…; commit cancellation…; field log commit and upload lifecycle (Vitest) |
+| TC013 | 14 | Commit Log | Commit Log local data integration | offline save stays out of queue…; commit cancellation…; field log commit and upload lifecycle (Vitest) |
+| TC014 | 15 | Commit Log | Commit Log reload persistence | offline save stays out of queue…; commit cancellation…; field log commit and upload lifecycle (Vitest) |
 | TC015 | 16 | Upload Log | Upload Log layout renders | S2 layout 375 / 768 / 1440 |
 | TC016 | 17 | Upload Log | Upload Log responsive layout | S2 layout 375 / 768 / 1440 |
-| TC017 | 18 | Upload Log | Upload Log accepts valid input | S2 Chrome offline…; S2 interrupt upload…; S2 pending fetch… |
-| TC018 | 19 | Upload Log | Upload Log rejects invalid input | S2 Chrome offline…; S2 interrupt upload…; S2 pending fetch… |
-| TC019 | 20 | Upload Log | Upload Log accepts valid input | S2 Chrome offline…; S2 interrupt upload…; S2 pending fetch… |
-| TC020 | 21 | Upload Log | Upload Log rejects invalid input | S2 Chrome offline…; S2 interrupt upload…; S2 pending fetch… |
-| TC021 | 22 | Upload Log | Upload Log local data integration | S2 Chrome offline…; S2 interrupt upload…; S2 pending fetch… |
-| TC022 | 23 | Upload Log | Upload Log reload persistence | S2 Chrome offline…; S2 interrupt upload…; S2 pending fetch… |
-| TC023 | 24 | Upload Log | Upload Log error feedback | S2 Chrome offline…; S2 interrupt upload…; S2 pending fetch… |
-| TC024 | 25 | Upload Log | Upload Log retry or recovery | S2 Chrome offline…; S2 interrupt upload…; S2 pending fetch… |
+| TC017 | 18 | Upload Log | Upload Log accepts valid input | S2 Chrome offline…; S2 interrupt upload…; S2 interrupted reload recovery… |
+| TC018 | 19 | Upload Log | Upload Log rejects invalid input | S2 Chrome offline…; S2 interrupt upload…; S2 interrupted reload recovery… |
+| TC019 | 20 | Upload Log | Upload Log accepts valid input | S2 Chrome offline…; S2 interrupt upload…; S2 interrupted reload recovery… |
+| TC020 | 21 | Upload Log | Upload Log rejects invalid input | S2 Chrome offline…; S2 interrupt upload…; S2 interrupted reload recovery… |
+| TC021 | 22 | Upload Log | Upload Log local data integration | S2 Chrome offline…; S2 interrupt upload…; S2 interrupted reload recovery… |
+| TC022 | 23 | Upload Log | Upload Log reload persistence | S2 Chrome offline…; S2 interrupt upload…; S2 interrupted reload recovery… |
+| TC023 | 24 | Upload Log | Upload Log error feedback | S2 Chrome offline…; S2 interrupt upload…; S2 interrupted reload recovery… |
+| TC024 | 25 | Upload Log | Upload Log retry or recovery | S2 Chrome offline…; S2 interrupt upload…; S2 interrupted reload recovery… |
 | TC025 | 26 | Fetch Pending Log | Fetch Pending Log layout renders | S2 layout 375 / 768 / 1440 |
 | TC026 | 27 | Fetch Pending Log | Fetch Pending Log responsive layout | S2 layout 375 / 768 / 1440 |
-| TC027 | 28 | Fetch Pending Log | Fetch Pending Log populated view | S2 pending fetch…; S2 layout … |
-| TC028 | 29 | Fetch Pending Log | Fetch Pending Log empty view | S2 pending fetch…; S2 layout … |
-| TC029 | 30 | Fetch Pending Log | Fetch Pending Log populated view | S2 pending fetch…; S2 layout … |
-| TC030 | 31 | Fetch Pending Log | Fetch Pending Log empty view | S2 pending fetch…; S2 layout … |
-| TC031 | 32 | Fetch Pending Log | Fetch Pending Log local data integration | S2 pending fetch…; S2 layout … |
-| TC032 | 33 | Fetch Pending Log | Fetch Pending Log reload persistence | S2 pending fetch…; S2 layout … |
+| TC027 | 28 | Fetch Pending Log | Fetch Pending Log populated view | S2 interrupted reload recovery…; S2 layout … |
+| TC028 | 29 | Fetch Pending Log | Fetch Pending Log empty view | S2 interrupted reload recovery…; S2 layout … |
+| TC029 | 30 | Fetch Pending Log | Fetch Pending Log populated view | S2 interrupted reload recovery…; S2 layout … |
+| TC030 | 31 | Fetch Pending Log | Fetch Pending Log empty view | S2 interrupted reload recovery…; S2 layout … |
+| TC031 | 32 | Fetch Pending Log | Fetch Pending Log local data integration | S2 interrupted reload recovery…; S2 layout … |
+| TC032 | 33 | Fetch Pending Log | Fetch Pending Log reload persistence | S2 interrupted reload recovery…; S2 layout … |
 | TC033 | 34 | Upload Receipt | Upload Receipt layout renders | S2 layout 375 / 768 / 1440 |
 | TC034 | 35 | Upload Receipt | Upload Receipt responsive layout | S2 layout 375 / 768 / 1440 |
 | TC035 | 36 | Upload Receipt | Upload Receipt accepts valid input | S2 receipt IndexedDB…; S2 offline image…; S2 malformed storage… |

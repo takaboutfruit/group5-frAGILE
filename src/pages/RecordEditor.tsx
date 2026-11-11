@@ -8,8 +8,7 @@ import {
 } from "react-router-dom";
 import type { RecordData } from "../records";
 import {
-  listLogRecords,
-  listRecords,
+  recordForUploadedLog,
   saveRecord,
   transition,
   validateRecord,
@@ -25,13 +24,8 @@ import Signature from "../components/Signature";
 import { preparePhoto } from "../photo";
 import { date, message, shortId } from "../utils";
 function initialRecord(id?: string) {
-  if (!id) throw Error("Choose an existing log from Fetch Pending Logs.");
-  const saved = listRecords().find((r) => r.id === id);
-  if (!saved && !navigator.onLine)
-    throw Error("Reconnect to fetch this log before creating its record.");
-  const existing = listLogRecords().find((r) => r.id === id);
-  if (existing) return existing;
-  throw Error("This record could not be found on this device.");
+  if (!id) throw Error("Choose an uploaded log first.");
+  return recordForUploadedLog(id);
 }
 export default function RecordEditor() {
   const { id } = useParams();
@@ -121,7 +115,7 @@ function RecordForm({ id }: { id?: string }) {
     return (
       <main className="narrow page">
         <Alert>{initial.error}</Alert>
-        <Link to="/sync">Back to Sync Queue</Link>
+        <Link to="/uploaded">Back to Uploaded Logs</Link>
       </main>
     );
   const r = record;
@@ -171,7 +165,7 @@ function RecordForm({ id }: { id?: string }) {
     try {
       if (final && r.receiptImageId) await getReceipt(r.receiptImageId);
       const saved = final
-        ? transition(r, "COMMITTED")
+        ? transition(r, "SUBMITTED")
         : { ...r, updatedAt: new Date().toISOString() };
       saveRecord(saved);
       for (const imageId of stagedImages.current) {
@@ -245,8 +239,8 @@ function RecordForm({ id }: { id?: string }) {
       </div>
       {(submitted || locked) && (
         <Alert success>
-          <span>Record submitted</span> · Locked locally · Ready for simulated
-          sync.
+          <span>Record submitted</span> · Locked locally · Final submission
+          complete.
         </Alert>
       )}
       {error && !preview && <Alert>{error}</Alert>}

@@ -6,6 +6,7 @@ import Welcome from "./pages/Welcome";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import RecordEditor from "./pages/RecordEditor";
+import UploadedLogs from "./pages/UploadedLogs";
 import SyncQueue from "./pages/SyncQueue";
 import Editor, { EditorRoute } from "./pages/Editor";
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
           <Brand />
           <nav aria-label="Main navigation">
             <Link to="/sync">Sync Queue</Link>
+            <Link to="/uploaded">Uploaded Logs</Link>
             <Link
               to="/logs"
               className={location.pathname === "/logs" ? "nav-active" : ""}
@@ -57,10 +59,11 @@ export default function App() {
       )}
       <Routes>
         <Route path="/sync" element={<SyncQueue />} />
-        <Route path="/pending" element={<SyncQueue key="pending" pending />} />
+        <Route path="/uploaded" element={<UploadedLogs />} />
+        <Route path="/pending" element={<Navigate to="/uploaded" replace />} />
         <Route
           path="/records/new"
-          element={<Navigate to="/pending" replace />}
+          element={<Navigate to="/uploaded" replace />}
         />
         <Route path="/records/:id" element={<RecordEditor />} />
         <Route path="/" element={<Welcome />} />

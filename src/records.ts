@@ -1,5 +1,6 @@
 import type { Draft } from "./model";
-import { isDraft, listDrafts, validateNote } from "./model";
+import { isDraft, validateNote } from "./model";
+import { listUploadedLogs } from "./transfers";
 export const MATERIALS = [
   "PET (bottles)",
   "HDPE (containers)",
@@ -9,12 +10,7 @@ export const MATERIALS = [
   "Other",
 ];
 export const LEVELS = ["Low", "Medium", "High"];
-export type Status =
-  | "DRAFT"
-  | "COMMITTED"
-  | "SYNCING"
-  | "SYNCED"
-  | "SYNC_FAILED";
+export type Status = "DRAFT" | "SUBMITTED";
 export interface RecordData extends Draft {
   sourceLogId?: string;
   status: Status;
@@ -30,13 +26,8 @@ export interface RecordData extends Draft {
 }
 type Store = Pick<Storage, "getItem" | "setItem">;
 const KEY = "fragile:v2:records";
-const next: Record<Status, Status[]> = {
-  DRAFT: ["COMMITTED"],
-  COMMITTED: ["SYNCING"],
-  SYNCING: ["SYNCED", "SYNC_FAILED"],
-  SYNCED: [],
-  SYNC_FAILED: ["SYNCING"],
-};
+const next: Record<Status, Status[]> = { DRAFT: ["SUBMITTED"], SUBMITTED: [] };
+const legacyFinalStatuses = ["COMMITTED", "SYNCING", "SYNCED", "SYNC_FAILED"];
 export function fromDraft(d: Draft): RecordData {
   return {
     ...d,
@@ -75,14 +66,14 @@ export function validateRecord(r: RecordData) {
 export function transition(r: RecordData, status: Status): RecordData {
   if (!next[r.status]?.includes(status))
     throw Error("Invalid record transition.");
-  if (status === "COMMITTED" && Object.keys(validateRecord(r)).length)
+  if (status === "SUBMITTED" && Object.keys(validateRecord(r)).length)
     throw Error("Complete the required record details first.");
   const now = new Date().toISOString();
   return {
     ...r,
     status,
     updatedAt: now,
-    ...(status === "COMMITTED" ? { submittedAt: now } : {}),
+    ...(status === "SUBMITTED" ? { submittedAt: now } : {}),
     syncError: undefined,
   };
 }
@@ -93,7 +84,7 @@ function isRecord(v: unknown): v is RecordData {
     isDraft(r) &&
     typeof r.id === "string" &&
     r.id.length > 0 &&
-    Object.hasOwn(next, r.status) &&
+    (Object.hasOwn(next, r.status) || legacyFinalStatuses.includes(r.status)) &&
     [
       "reference",
       "materialType",
@@ -120,7 +111,10 @@ export function listRecords(storage: Store = localStorage): RecordData[] {
       new Set(rows.map((r) => r.id)).size !== rows.length
     )
       throw Error();
-    return rows;
+    return rows.map((r) => ({
+      ...r,
+      status: r.status === "DRAFT" ? "DRAFT" : "SUBMITTED",
+    }));
   } catch {
     throw Error(
       "Could not read records. Existing data has been left untouched.",
@@ -128,7 +122,8 @@ export function listRecords(storage: Store = localStorage): RecordData[] {
   }
 }
 export function saveRecord(r: RecordData, storage: Store = localStorage) {
-  if (!isRecord(r)) throw Error("Invalid record data.");
+  if (!isRecord(r) || !Object.hasOwn(next, r.status))
+    throw Error("Invalid record data.");
   validateNote(r.note);
   if (r.status === "DRAFT") {
     const errors = validateRecord(r);
@@ -157,9 +152,7 @@ export function saveRecord(r: RecordData, storage: Store = localStorage) {
   }
   if (prev && prev.status !== r.status && !next[prev.status].includes(r.status))
     throw Error("Invalid record transition.");
-  if (!prev && r.status !== "DRAFT" && r.status !== "COMMITTED")
-    throw Error("Save the draft before syncing.");
-  if (r.status === "COMMITTED" && Object.keys(validateRecord(r)).length)
+  if (r.status === "SUBMITTED" && Object.keys(validateRecord(r)).length)
     throw Error("Complete the required record details first.");
   try {
     storage.setItem(
@@ -180,46 +173,34 @@ export function validateReceipt(file: Pick<File, "type" | "size">) {
 }
 export const statusLabel: Record<Status, string> = {
   DRAFT: "Draft",
-  COMMITTED: "Pending Upload",
-  SYNCING: "Syncing",
-  SYNCED: "Uploaded (simulated)",
-  SYNC_FAILED: "Failed",
+  SUBMITTED: "Submitted",
 };
 
-// Project source logs into the queue by ID; reading the queue never creates copies.
-export function listLogRecords(storage: Store = localStorage): RecordData[] {
-  const sources = listDrafts(storage);
-  const sourceIds = new Set(sources.map((source) => source.id));
-  // Keep final snapshots and legacy records; hide unfinished records whose source was deleted.
-  const records = new Map(
-    listRecords(storage)
-      .filter(
-        (r) =>
-          r.status !== "DRAFT" ||
-          !r.sourceLogId ||
-          sourceIds.has(r.sourceLogId),
-      )
-      .map((r) => [r.id, r]),
-  );
-  for (const source of sources) {
-    const record = records.get(source.id);
-    records.set(
-      source.id,
-      !record
-        ? fromDraft(source)
-        : record.status === "DRAFT"
-          ? {
-              ...record,
-              ...source,
-              updatedAt:
-                record.updatedAt > source.updatedAt
-                  ? record.updatedAt
-                  : source.updatedAt,
-            }
-          : record,
+// Final record creation happens only after its field log was uploaded.
+export function recordForUploadedLog(
+  id: string,
+  storage: Store = localStorage,
+): RecordData {
+  const saved = listRecords(storage).find((r) => r.id === id);
+  // Preserve read access to final records saved by earlier versions.
+  if (saved && saved.status !== "DRAFT") return saved;
+  const uploaded = listUploadedLogs(storage).find((r) => r.id === id);
+  if (!uploaded)
+    throw Error(
+      "Choose an uploaded log from Uploaded Logs before creating a record.",
     );
-  }
-  return [...records.values()].sort((a, b) =>
-    b.updatedAt.localeCompare(a.updatedAt),
-  );
+  const source: Draft = {
+    id: uploaded.id,
+    ownerId: uploaded.ownerId,
+    createdAt: uploaded.createdAt,
+    updatedAt: uploaded.updatedAt,
+    capturedAt: uploaded.capturedAt,
+    timezone: uploaded.timezone,
+    location: uploaded.location,
+    photo: uploaded.photo,
+    note: uploaded.note,
+  };
+  return saved
+    ? { ...saved, ...source, updatedAt: saved.updatedAt }
+    : fromDraft(source);
 }
