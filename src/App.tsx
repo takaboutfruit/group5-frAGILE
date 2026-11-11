@@ -5,6 +5,8 @@ import { Brand } from "./components/ui";
 import Welcome from "./pages/Welcome";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
+import RecordEditor from "./pages/RecordEditor";
+import SyncQueue from "./pages/SyncQueue";
 import Editor, { EditorRoute } from "./pages/Editor";
 export default function App() {
   const [online, setOnline] = useState(navigator.onLine);
@@ -24,6 +26,7 @@ export default function App() {
         <div className="topbar-inner">
           <Brand />
           <nav aria-label="Main navigation">
+            <Link to="/sync">Sync Queue</Link>
             <Link
               to="/logs"
               className={location.pathname === "/logs" ? "nav-active" : ""}
@@ -39,6 +42,13 @@ export default function App() {
           </nav>
         </div>
       </header>
+      <div
+        data-testid="connectivity"
+        className={`connection-status ${online ? "connected" : "disconnected"}`}
+        role="status"
+      >
+        {online ? "Online · Saved on device" : "Offline · Saved on device"}
+      </div>
       {!online && (
         <div className="offline-strip">
           <WifiOff size={15} /> You’re offline. You can keep creating logs and
@@ -46,6 +56,10 @@ export default function App() {
         </div>
       )}
       <Routes>
+        <Route path="/sync" element={<SyncQueue />} />
+        <Route path="/pending" element={<SyncQueue key="pending" pending />} />
+        <Route path="/records/new" element={<RecordEditor />} />
+        <Route path="/records/:id" element={<RecordEditor />} />
         <Route path="/" element={<Welcome />} />
         <Route path="/register" element={<Register />} />
         <Route path="/logs" element={<Dashboard />} />
@@ -69,7 +83,7 @@ export default function App() {
           <Waves size={16} /> Small actions. Cleaner oceans.
         </span>
         <span>
-          Sprint 1 prototype <span className="footer-dot">·</span> Stored on
+          Sprint 2 prototype <span className="footer-dot">·</span> Stored on
           this device
         </span>
       </footer>

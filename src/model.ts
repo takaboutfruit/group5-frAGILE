@@ -40,7 +40,7 @@ function isUser(v: unknown): v is User {
     )
   );
 }
-function isDraft(v: unknown): v is Draft {
+export function isDraft(v: unknown): v is Draft {
   const d = v as Draft;
   if (
     !d ||

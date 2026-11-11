@@ -190,6 +190,9 @@ export default function Dashboard() {
                 <div className="progress-track">
                   <span style={{ width: `${(completion(d) / 4) * 100}%` }} />
                 </div>
+                <Link to={`/records/${d.id}`} className="text-button">
+                  Complete final record
+                </Link>
                 <div className="draft-card-footer">
                   <Link to={`/logs/${d.id}`} className="text-button">
                     Edit draft <ArrowRight size={15} />
