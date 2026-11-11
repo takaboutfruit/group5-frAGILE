@@ -195,9 +195,7 @@ test("registration stays optional and does not change existing device drafts", a
   const original = await page.evaluate(() =>
     localStorage.getItem("fragile:v1:drafts"),
   );
-  await page
-    .getByRole("link", { name: "Create account (optional)", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Create account", exact: true }).click();
   await page.getByLabel("Full name").fill("Maya Chen");
   await page.getByLabel("Email address").fill("maya@example.com");
   await page.getByLabel("Password", { exact: true }).fill("OceanDemo123!");

@@ -47,7 +47,7 @@ Browser tests use native offline emulation, real image decoding and IndexedDB pe
 
 ## Interface checks
 
-- One sticky header provides My logs → Sync queue → Records. Per-page navigation strips and the manual queue refresh button are removed. New page navigation starts at the top; unsaved-change confirmations remain in place.
+- One sticky header provides My logs → Sync queue → Records → Create account. Per-page navigation strips and the manual queue refresh button are removed. New page navigation starts at the top; unsaved-change confirmations remain in place.
 - My logs is the editable field-log gallery. Sync queue is a compact transfer-status list, with automatic updates and recovery. Records shows uploaded logs and record progress.
 - Primary buttons use white text on dark teal. Success/error notifications appear in a fixed notification stack; errors inside dialogs stay beside the confirmation actions.
 

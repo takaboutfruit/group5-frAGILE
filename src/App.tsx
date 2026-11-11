@@ -55,6 +55,11 @@ export default function App() {
                   location.pathname === "/uploaded" ||
                   location.pathname.startsWith("/records"),
               },
+              {
+                to: "/register",
+                label: "Create account",
+                active: location.pathname === "/register",
+              },
             ].map((item) => (
               <Link
                 key={item.to}
@@ -101,8 +106,8 @@ export default function App() {
           <Waves size={16} /> Small actions. Cleaner oceans.
         </span>
         <span>
-          <Link to="/register">Create account (optional)</Link> · Sprint 2
-          prototype <span className="footer-dot">·</span> Stored on this device
+          Sprint 2 prototype <span className="footer-dot">·</span> Stored on
+          this device
         </span>
       </footer>
     </div>

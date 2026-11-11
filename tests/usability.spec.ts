@@ -23,6 +23,7 @@ test("one sticky workflow navigation, no page navigation strips or refresh queue
     "My logs",
     "Sync queue",
     "Records",
+    "Create account",
   ]);
   await expect(page.locator(".record-links")).toHaveCount(0);
   await expect(
@@ -121,4 +122,25 @@ test("Records retains record progress and validation messages remain visible at 
   const box = (await alert.boundingBox())!;
   expect(box.y).toBeGreaterThanOrEqual(0);
   expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+});
+
+test("Create account is accessible from the header at phone, tablet and desktop widths", async ({
+  page,
+}) => {
+  for (const width of [375, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/logs");
+    const account = page
+      .getByRole("navigation")
+      .getByRole("link", { name: "Create account", exact: true });
+    await expect(account).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await account.click();
+    await expect(page).toHaveURL(/\/register$/);
+    await expect(account).toHaveAttribute("aria-current", "page");
+  }
 });

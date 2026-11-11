@@ -2671,3 +2671,10 @@ html {
 .uploads-complete .empty-illustration {
   display: none;
 }
+@media (max-width: 540px) {
+  .topbar nav a {
+    font-size: 12px;
+    padding: 8px 6px;
+    white-space: nowrap;
+  }
+}
