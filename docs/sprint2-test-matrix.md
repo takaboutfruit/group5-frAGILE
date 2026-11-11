@@ -122,3 +122,5 @@ The 15 design exports are implemented as consolidated responsive record, commit 
 `tests/history.spec.ts` verifies successful uploads disappear from active My logs, remain in read-only History after reload, and leave drafts/pending/failed logs active without deleting source data.
 
 `tests/record-return.spec.ts` verifies returning to Records after draft save and final submission, and receipt-only submission without the obsolete cleanup-photo warning.
+
+Reference uniqueness is covered by `src/records.test.ts` and `tests/reference-unique.spec.ts`: duplicate drafts/submissions, case/space variants, unchanged storage on rejection, retaining the current record's ID, empty draft references, inline feedback and successful correction.

@@ -44,6 +44,24 @@ function RecordForm({ id }: { id?: string }) {
       return { record: null, error: message(e), persisted: false };
     }
   });
+  const [knownRecords, setKnownRecords] = useState(() => {
+    try {
+      return listRecords();
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => {
+    const refresh = () => {
+      try {
+        setKnownRecords(listRecords());
+      } catch (e) {
+        setError(message(e));
+      }
+    };
+    window.addEventListener("storage", refresh);
+    return () => window.removeEventListener("storage", refresh);
+  }, []);
   const [record, setRecord] = useState(initial.record);
   const [savedOnDevice, setSavedOnDevice] = useState(initial.persisted);
   const [baseline, setBaseline] = useState(initial.record);
@@ -128,7 +146,7 @@ function RecordForm({ id }: { id?: string }) {
       </main>
     );
   const r = record;
-  const validation = validateRecord(r);
+  const validation = validateRecord(r, knownRecords);
   const fieldErrors = Object.fromEntries(
     Object.entries(validation).filter(([key]) => attempted || touched[key]),
   );
@@ -138,6 +156,13 @@ function RecordForm({ id }: { id?: string }) {
     setRecord((v) => (v ? { ...v, ...patch } : v));
     setError("");
     setNotice("");
+    if ("reference" in patch) {
+      try {
+        setKnownRecords(listRecords());
+      } catch (e) {
+        setError(message(e));
+      }
+    }
   }
   async function selectReceipt(file?: File) {
     if (!file) return;
@@ -230,6 +255,11 @@ function RecordForm({ id }: { id?: string }) {
         });
       }
     } catch (e) {
+      try {
+        setKnownRecords(listRecords());
+      } catch {
+        /* Preserve the underlying save error. */
+      }
       setConfirmation(false);
       setError(message(e));
     } finally {
@@ -238,14 +268,20 @@ function RecordForm({ id }: { id?: string }) {
   }
   function submit() {
     setAttempted(true);
-    const errors = validateRecord(r);
-    if (Object.keys(errors).length) {
-      setError(
-        "Please complete required fields. " + Object.values(errors).join(" "),
-      );
-      return;
+    try {
+      const records = listRecords();
+      setKnownRecords(records);
+      const errors = validateRecord(r, records);
+      if (Object.keys(errors).length) {
+        setError(
+          "Please complete required fields. " + Object.values(errors).join(" "),
+        );
+        return;
+      }
+      setConfirmation(true);
+    } catch (e) {
+      setError(message(e));
     }
-    setConfirmation(true);
   }
   function cancel() {
     if (
@@ -307,7 +343,9 @@ function RecordForm({ id }: { id?: string }) {
             id="record-reference-error"
             message={fieldErrors.reference}
           />
-          <p className="small muted">Letters, numbers and hyphens. Required.</p>
+          <p className="small muted">
+            Use a unique ID with letters, numbers and hyphens. Required.
+          </p>
           <label>
             Weight (kg)
             <input

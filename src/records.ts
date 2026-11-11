@@ -42,11 +42,29 @@ export function fromDraft(d: Draft): RecordData {
     receiptImageId: null,
   };
 }
-export function validateRecord(r: RecordData) {
+function referenceConflict(
+  r: RecordData,
+  records: RecordData[],
+): string | undefined {
+  const key = r.reference.trim().toUpperCase();
+  if (
+    key &&
+    records.some(
+      (other) =>
+        other.id !== r.id && other.reference.trim().toUpperCase() === key,
+    )
+  )
+    return "This Reference ID is already used by another record. Enter a unique Reference ID.";
+}
+export function validateRecord(r: RecordData, records: RecordData[] = []) {
   const errors: Record<string, string> = {};
   if (!/^[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*$/.test(r.reference.trim()))
     errors.reference =
       "Reference is required: use letters, numbers and hyphens.";
+  if (!errors.reference) {
+    const conflict = referenceConflict(r, records);
+    if (conflict) errors.reference = conflict;
+  }
   if (
     typeof r.weightKg !== "number" ||
     !Number.isFinite(r.weightKg) ||
@@ -125,6 +143,9 @@ export function saveRecord(r: RecordData, storage: Store = localStorage) {
   if (!isRecord(r) || !Object.hasOwn(next, r.status))
     throw Error("Invalid record data.");
   validateNote(r.note);
+  const records = listRecords(storage);
+  const conflict = referenceConflict(r, records);
+  if (conflict) throw Error(conflict);
   if (r.status === "DRAFT") {
     const errors = validateRecord(r);
     for (const key of [
@@ -137,7 +158,6 @@ export function saveRecord(r: RecordData, storage: Store = localStorage) {
         throw Error(errors[key]);
     }
   }
-  const records = listRecords(storage);
   const prev = records.find((p) => p.id === r.id);
   if (prev && prev.status !== "DRAFT") {
     const details = (v: RecordData) =>

@@ -97,15 +97,19 @@ describe("Sprint 2 record contract", () => {
   });
   it("preserves prior data on storage failure and malformed JSON", () => {
     const s = memory();
-    saveRecord(valid(), s);
+    const original = valid();
+    saveRecord(original, s);
     const before = s.getItem("fragile:v2:records");
     expect(() =>
-      saveRecord(valid(), {
-        ...s,
-        setItem: () => {
-          throw Error("full");
+      saveRecord(
+        { ...original, weightKg: 20 },
+        {
+          ...s,
+          setItem: () => {
+            throw Error("full");
+          },
         },
-      }),
+      ),
     ).toThrow("save");
     expect(s.getItem("fragile:v2:records")).toBe(before);
     s.setItem("fragile:v2:records", "broken");
@@ -176,4 +180,39 @@ it("reads legacy submitted records without treating them as log uploads or rewri
   s.setItem("fragile:v2:records", JSON.stringify([legacy]));
   expect(listRecords(s)[0].status).toBe("SUBMITTED");
   expect(JSON.parse(s.getItem("fragile:v2:records")!)[0].status).toBe("SYNCED");
+});
+describe("unique Reference IDs", () => {
+  it("rejects duplicates across drafts and submitted records without changing storage", () => {
+    const s = memory();
+    const first = valid();
+    saveRecord(first, s);
+    const before = s.getItem("fragile:v2:records");
+    expect(() =>
+      saveRecord({ ...valid(), reference: " ref-12345 " }, s),
+    ).toThrow("already used");
+    expect(s.getItem("fragile:v2:records")).toBe(before);
+    saveRecord(transition(first, "SUBMITTED"), s);
+    expect(() => saveRecord({ ...valid(), reference: "REF-12345" }, s)).toThrow(
+      "already used",
+    );
+  });
+  it("allows the same record to retain its reference and different records to use different references", () => {
+    const s = memory();
+    const first = valid();
+    saveRecord(first, s);
+    saveRecord({ ...first, weightKg: 25 }, s);
+    saveRecord({ ...valid(), reference: "REF-OTHER" }, s);
+    expect(listRecords(s)).toHaveLength(2);
+  });
+  it("flags duplicates for inline validation but does not reserve empty draft references", () => {
+    const first = valid();
+    expect(
+      validateRecord({ ...valid(), reference: "ref-12345" }, [first]),
+    ).toHaveProperty("reference", expect.stringContaining("already used"));
+    expect(validateRecord(first, [first])).not.toHaveProperty("reference");
+    const s = memory();
+    saveRecord(fromDraft(newDraft()), s);
+    saveRecord(fromDraft(newDraft()), s);
+    expect(listRecords(s)).toHaveLength(2);
+  });
 });
