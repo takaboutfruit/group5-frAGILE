@@ -96,3 +96,38 @@ test("receipt-only final record submits without a cleanup-photo warning and retu
     page.getByRole("link", { name: "View Final Record", exact: true }),
   ).toBeVisible();
 });
+
+test("missing receipt blocks final submission with red field feedback but allows drafts", async ({ page }) => {
+  await open(page);
+  await page.getByLabel("Reference ID").fill("REF-MISSING-RECEIPT");
+  await page.getByLabel("Weight (kg)").fill("12.5");
+  await page.getByLabel("Material type").selectOption("PET (bottles)");
+  await page.getByLabel("Contamination level").selectOption("Low");
+  const canvas = page.getByLabel("Draw signature");
+  await canvas.scrollIntoViewIfNeeded();
+  const b = (await canvas.boundingBox())!;
+  await page.mouse.move(b.x + 30, b.y + 30);
+  await page.mouse.down();
+  await page.mouse.move(b.x + 100, b.y + 80, { steps: 5 });
+  await page.mouse.up();
+  await page.getByRole("button", { name: "Save as Draft", exact: true }).click();
+  await page.reload();
+  await expect(page.locator("#record-receipt-error")).toHaveCount(0);
+  await page.getByRole("button", { name: "Submit Final Record", exact: true }).click();
+  const error = page.locator("#record-receipt-error");
+  await expect(error).toHaveText("Attach a receipt before submitting the final record.");
+  await expect(error).toHaveCSS("color", "rgb(180, 35, 24)");
+  const input = page.getByLabel("Receipt image", { exact: true });
+  await expect(input).toHaveAttribute("aria-invalid", "true");
+  await expect(input).toHaveAttribute("aria-describedby", "record-receipt-error");
+  expect((await error.boundingBox())!.y).toBeGreaterThan((await input.locator("..").boundingBox())!.y);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Save as Draft", exact: true }).click();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("fragile:v2:records")!)[0].status)).toBe("DRAFT");
+  await input.setInputFiles({ name: "receipt.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==", "base64") });
+  await page.getByRole("button", { name: "Use receipt", exact: true }).click();
+  await expect(error).toHaveCount(0);
+  await page.getByRole("button", { name: "Remove receipt", exact: true }).click();
+  await page.getByRole("button", { name: "Remove image", exact: true }).click();
+  await expect(error).toBeVisible();
+});

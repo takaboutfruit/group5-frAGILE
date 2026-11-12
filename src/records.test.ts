@@ -26,6 +26,7 @@ const valid = (): RecordData => ({
   materialType: MATERIALS[0],
   contaminationLevel: "Low",
   signatureDataUrl: "data:image/png;base64,abc",
+  receiptImageId: "receipt-123",
 });
 describe("Sprint 2 record contract", () => {
   it("imports Sprint 1 data without mutating the source", () => {
@@ -215,4 +216,15 @@ describe("unique Reference IDs", () => {
     saveRecord(fromDraft(newDraft()), s);
     expect(listRecords(s)).toHaveLength(2);
   });
+});
+
+it.each([null, "", "   "])("requires an attached receipt for final submission (%s)", (receiptImageId) => {
+  const r = { ...valid(), receiptImageId };
+  expect(validateRecord(r)).toHaveProperty("receiptImageId", "Attach a receipt before submitting the final record.");
+  expect(() => transition(r, "SUBMITTED")).toThrow("required");
+  const s = memory();
+  saveRecord(r, s);
+  expect(listRecords(s)[0].status).toBe("DRAFT");
+  expect(() => saveRecord({ ...r, status: "SUBMITTED" }, s)).toThrow("required");
+  expect(listRecords(s)[0].status).toBe("DRAFT");
 });

@@ -79,6 +79,8 @@ export function validateRecord(r: RecordData, records: RecordData[] = []) {
     errors.contaminationLevel = "Select a contamination level.";
   if (!/^data:image\/png;base64,.+/.test(r.signatureDataUrl))
     errors.signatureDataUrl = "Signature is required.";
+  if (!r.receiptImageId?.trim())
+    errors.receiptImageId = "Attach a receipt before submitting the final record.";
   return errors;
 }
 export function transition(r: RecordData, status: Status): RecordData {

@@ -150,6 +150,7 @@ function RecordForm({ id }: { id?: string }) {
   const fieldErrors = Object.fromEntries(
     Object.entries(validation).filter(([key]) => attempted || touched[key]),
   );
+  const receiptFieldError = receiptError || fieldErrors.receiptImageId;
   const touch = (key: string) => setTouched((v) => ({ ...v, [key]: true }));
   function update(patch: Partial<RecordData>) {
     if (locked) return;
@@ -449,7 +450,10 @@ function RecordForm({ id }: { id?: string }) {
         </section>
         <section className="record-section">
           <h2 id="record-receipt">Receipt</h2>
-          <p>Attach your receipt photo. JPEG or PNG, smaller than 3 MB.</p>
+          <p>
+            Attach your receipt photo. Required for final submission; optional
+            for drafts. JPEG or PNG, smaller than 3 MB.
+          </p>
           {receiptUrl && (
             <img
               className="receipt-image"
@@ -462,9 +466,9 @@ function RecordForm({ id }: { id?: string }) {
             <input
               className="sr-only"
               type="file"
-              aria-invalid={!!receiptError}
+              aria-invalid={!!receiptFieldError}
               aria-describedby={
-                receiptError ? "record-receipt-error" : undefined
+                receiptFieldError ? "record-receipt-error" : undefined
               }
               aria-label={r.receiptImageId ? "Retake receipt" : "Receipt image"}
               accept="image/jpeg,image/png"
@@ -475,7 +479,7 @@ function RecordForm({ id }: { id?: string }) {
               }}
             />
           </label>
-          <FieldError id="record-receipt-error" message={receiptError} />
+          <FieldError id="record-receipt-error" message={receiptFieldError} />
           {r.receiptImageId && (
             <button
               className="text-button delete-button"

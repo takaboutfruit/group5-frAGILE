@@ -1,4 +1,4 @@
-import { completeRequiredLog, fetchIfNeeded } from "./helpers";
+import { attachReceipt, completeRequiredLog, fetchIfNeeded } from "./helpers";
 import { test, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 const png = Buffer.from(
@@ -55,6 +55,8 @@ async function details(page: Page) {
   await signature(page);
 }
 async function finalize(page: Page) {
+  if (await page.getByLabel("Receipt image", { exact: true }).count())
+    await attachReceipt(page);
   await page
     .getByRole("button", { name: "Submit Final Record", exact: true })
     .click();
@@ -181,6 +183,7 @@ test("S2 submission failure preserves edits and retry locks final record", async
 }) => {
   await openRecord(page);
   await details(page);
+  await attachReceipt(page);
   await page.evaluate(() => {
     const original = Storage.prototype.setItem;
     (window as any).restoreStorage = () => {

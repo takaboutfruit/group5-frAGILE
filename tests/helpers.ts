@@ -27,3 +27,12 @@ export async function fetchIfNeeded(page: Page) {
   const button = page.getByRole("button", { name: "Fetch Logs", exact: true });
   if (await button.count()) await button.click();
 }
+
+export async function attachReceipt(page: Page) {
+  await page.getByLabel("Receipt image", { exact: true }).setInputFiles({
+    name: "receipt.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==", "base64"),
+  });
+  await page.getByRole("button", { name: "Use receipt", exact: true }).click();
+}

@@ -1,4 +1,4 @@
-import { completeRequiredLog, fetchIfNeeded } from "./helpers";
+import { attachReceipt, completeRequiredLog, fetchIfNeeded } from "./helpers";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 async function saveLog(page: Page, note: string) {
@@ -65,6 +65,7 @@ test("offline save stays out of queue; commit selection, upload, fetch and final
   await page.mouse.down();
   await page.mouse.move(b.x + 100, b.y + 80, { steps: 5 });
   await page.mouse.up();
+  await attachReceipt(page);
   await page
     .getByRole("button", { name: "Submit Final Record", exact: true })
     .click();
